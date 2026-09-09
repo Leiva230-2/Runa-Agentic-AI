@@ -1,0 +1,58 @@
+{"ts": "21:52:15", "actor": "human", "summary": "Sari: Pagi semua, hari ini ada 3 inbound ya"}
+{"ts": "21:54:32", "actor": "human", "summary": "Sari: Pagi semua, hari ini ada 3 inbound ya"}
+{"ts": "21:56:43", "actor": "human", "summary": "Sari: Pagi semua, hari ini ada 3 inbound ya"}
+{"ts": "21:56:45", "actor": "listener", "summary": "Not a business event \u2014 discarded"}
+{"ts": "21:56:45", "actor": "human", "summary": "Budi: siap bu"}
+{"ts": "21:56:46", "actor": "listener", "summary": "Not a business event \u2014 discarded"}
+{"ts": "21:56:47", "actor": "human", "summary": "Budi: Pak macet parah di tol Cikampek, kayaknya baru sampai gudang jam 11 malam"}
+{"ts": "21:56:48", "actor": "listener", "summary": "Candidate DELIVERY_DELAY: Delivery to warehouse delayed until 11 PM due to severe traffic on Cikampek toll road."}
+{"ts": "21:56:54", "actor": "resolver", "summary": "Identity is very clear \u2014 Budi is the assigned carrier for 0080004521 on the Cikampek route \u2014 but the ETA 'jam 11 malam' is explicitly hedged with 'kayaknya', making it an estimate rather than a confirmed time that can be written into the ERP.", "delivery_id": "0080004521", "identity_confidence": 0.97, "content_confidence": 0.55}
+{"ts": "21:56:54", "actor": "resolver", "summary": "Below threshold on content confidence \u2014 asking rather than guessing"}
+{"ts": "21:56:54", "actor": "agent", "summary": "Budi, kira-kira jam 11 malam itu perkiraan atau sudah pasti? Bisa konfirmasi estimasi tiba yang lebih akurat?"}
+{"ts": "21:56:54", "actor": "human", "summary": "Budi: iya betul, DO 0080004521"}
+{"ts": "21:56:54", "actor": "resolver", "summary": "Reply received \u2014 re-scoring with new information"}
+{"ts": "21:57:05", "actor": "resolver", "summary": "Delivery identity is near-certain (Budi confirmed DO 0080004521 explicitly, matching his assigned route), but ETA is hedged with 'kayaknya' so the 23:00 arrival cannot be recorded as a firm fact; also notable that 23:00 exceeds the dock closing time of 22:00, which warrants clarification.", "delivery_id": "0080004521", "identity_confidence": 0.98, "content_confidence": 0.55}
+{"ts": "21:57:05", "actor": "resolver", "summary": "Still below threshold \u2014 escalating to a human rather than writing"}
+{"ts": "22:02:16", "actor": "human", "summary": "Sari: Pagi semua, hari ini ada 3 inbound ya"}
+{"ts": "22:02:18", "actor": "listener", "summary": "Not a business event \u2014 discarded"}
+{"ts": "22:02:18", "actor": "human", "summary": "Budi: siap bu"}
+{"ts": "22:02:19", "actor": "listener", "summary": "Not a business event \u2014 discarded"}
+{"ts": "22:02:20", "actor": "human", "summary": "Budi: Pak macet parah di tol Cikampek, kayaknya baru sampai gudang jam 11 malam"}
+{"ts": "22:02:21", "actor": "listener", "summary": "Candidate DELIVERY_DELAY: Delivery to warehouse delayed until 11 PM due to heavy traffic on Cikampek toll road."}
+{"ts": "22:02:31", "actor": "resolver", "summary": "Budi is assigned to delivery 0080004521 on the Cikampek route which matches perfectly, so identity is very high; but the ETA of 11 PM is hedged with 'kayaknya', making it unreliable to record as a firm ETA especially since it would breach the 22:00 dock closing time.", "delivery_id": "0080004521", "identity_confidence": 0.97, "content_confidence": 0.55}
+{"ts": "22:02:31", "actor": "resolver", "summary": "Below threshold on content confidence \u2014 asking rather than guessing"}
+{"ts": "22:02:31", "actor": "agent", "summary": "Budi, kira-kira jam 11 malam itu sudah pasti, atau masih perkiraan? Soalnya DOCK-02 tutup jam 10 malam."}
+{"ts": "22:02:31", "actor": "human", "summary": "Budi: sudah pasti pak, jam 23:00. sekarang sudah lewat Karawang"}
+{"ts": "22:02:31", "actor": "resolver", "summary": "Reply received \u2014 re-scoring with new information"}
+{"ts": "22:02:39", "actor": "resolver", "summary": "Budi is confirmed as the driver for delivery 0080004521 on the Cikampek route; the initially hedged ETA of 11 PM was firmly confirmed in his follow-up message ('sudah pasti pak, jam 23:00'), raising content confidence, though a minor residual uncertainty remains as the new ETA (23:00) is past DOCK-02's closing time of 22:00, which may require operational follow-up.", "delivery_id": "0080004521", "identity_confidence": 0.97, "content_confidence": 0.93}
+{"ts": "22:02:39", "actor": "transactor", "summary": "Patched inbound delivery ETA to 23:00", "delivery_id": "0080004521", "reason_code": "TRAFFIC"}
+{"ts": "22:02:39", "actor": "conflict", "summary": "New state conflicts with dock closing time \u2014 surfacing to a human unprompted"}
+{"ts": "22:02:39", "actor": "agent", "summary": "@Sari DO 0080004521 sekarang perkiraan tiba 23:00, tapi DOCK-02 tutup 22:00. Opsi: (a) perpanjang shift, (b) reschedule besok pagi 06:00. Mana yang diambil?"}
+{"ts": "22:09:32", "actor": "human", "summary": "Sari: Pagi semua, hari ini ada 3 inbound ya"}
+{"ts": "22:09:34", "actor": "listener", "summary": "Not a business event \u2014 discarded"}
+{"ts": "22:09:35", "actor": "human", "summary": "Budi: siap bu"}
+{"ts": "22:09:36", "actor": "listener", "summary": "Not a business event \u2014 discarded"}
+{"ts": "22:09:36", "actor": "human", "summary": "Budi: Pak macet parah di tol Cikampek, kayaknya baru sampai gudang jam 11 malam"}
+{"ts": "22:09:38", "actor": "listener", "summary": "Candidate DELIVERY_DELAY: Delivery to warehouse delayed until 11 PM due to heavy traffic on Cikampek toll road."}
+{"ts": "22:09:44", "actor": "resolver", "summary": "Identity is highly confident \u2014 Budi is the assigned carrier for 0080004521 on the Cikampek route, which matches the traffic report; content confidence is low because Budi used 'kayaknya' (seemingly) when estimating the 11 PM arrival, making it a hedged guess rather than a confirmed ETA.", "delivery_id": "0080004521", "identity_confidence": 0.97, "content_confidence": 0.62}
+{"ts": "22:09:44", "actor": "resolver", "summary": "Below threshold on content confidence \u2014 asking rather than guessing"}
+{"ts": "22:09:44", "actor": "agent", "summary": "Bud, kira-kira jam 11 malam itu sudah pasti, atau masih perkiraan tergantung kondisi macetnya?"}
+{"ts": "22:09:44", "actor": "human", "summary": "Budi: sudah pasti pak, jam 23:00. sekarang sudah lewat Karawang"}
+{"ts": "22:09:44", "actor": "resolver", "summary": "Reply received \u2014 re-scoring with new information"}
+{"ts": "22:09:50", "actor": "resolver", "summary": "Budi is the confirmed carrier contact for delivery 0080004521 on the Cikampek\u2013Cikarang route; his initial hedged ETA of 23:00 was firmly confirmed in his follow-up message ('sudah pasti pak, jam 23:00'), lifting content confidence well above threshold, though a minor residual uncertainty remains around dock acceptance given closing time is 22:00.", "delivery_id": "0080004521", "identity_confidence": 0.97, "content_confidence": 0.93}
+{"ts": "22:09:50", "actor": "transactor", "summary": "Patched inbound delivery ETA to 23:00", "delivery_id": "0080004521", "reason_code": "TRAFFIC"}
+{"ts": "22:09:50", "actor": "conflict", "summary": "New state conflicts with dock closing time \u2014 surfacing to a human unprompted"}
+{"ts": "22:09:50", "actor": "agent", "summary": "@Sari DO 0080004521 sekarang perkiraan tiba 23:00, tapi DOCK-02 tutup 22:00. Opsi: (a) perpanjang shift, (b) reschedule besok pagi 06:00. Mana yang diambil?"}
+{"ts": "22:21:05", "actor": "human", "summary": "leiva: Pagi semua, hari ini ada 3 inbound ya"}
+{"ts": "22:21:07", "actor": "listener", "summary": "Not a business event \u2014 discarded"}
+{"ts": "22:21:40", "actor": "human", "summary": "Budi: pagi bu, sekarang macet parah di tol cikampek, kayaknya baru sampai gudang jam 11 malam"}
+{"ts": "22:21:42", "actor": "listener", "summary": "Candidate DELIVERY_DELAY: Driver Budi reports severe traffic on Cikampek toll road, expected warehouse arrival delayed to 11 PM."}
+{"ts": "22:21:51", "actor": "resolver", "summary": "Budi is confirmed assigned to 0080004521 on the Cikampek route, so identity is very high; but the ETA of 11 PM is hedged with 'kayaknya', so content_confidence is low and cannot be recorded as a firm ETA.", "delivery_id": "0080004521", "identity_confidence": 0.97, "content_confidence": 0.55}
+{"ts": "22:21:51", "actor": "resolver", "summary": "Below threshold on content confidence \u2014 asking rather than guessing"}
+{"ts": "22:21:51", "actor": "agent", "summary": "Budi, kira-kira jam 11 malam itu sudah pasti, atau masih perkiraan saja? Bisa dikonfirmasi ETAnya?"}
+{"ts": "22:22:17", "actor": "human", "summary": "Budi: suda pasti runa, jam 23:00. sekarang sudah lewat karawang"}
+{"ts": "22:22:17", "actor": "resolver", "summary": "Reply received \u2014 re-scoring with new information"}
+{"ts": "22:22:34", "actor": "resolver", "summary": "Budi is confirmed assigned to delivery 0080004521 (Cikampek route, PT Sinar Baja Logistik); his second message firmly confirms 23:00 arrival after passing Karawang, upgrading the earlier hedged 'kayaknya' to a firm ETA \u2014 however the dock closing time is 22:00, so arrival at 23:00 is past dock close, warranting a flag.", "delivery_id": "0080004521", "identity_confidence": 0.97, "content_confidence": 0.93}
+{"ts": "22:22:34", "actor": "transactor", "summary": "Patched inbound delivery ETA to 23:00", "delivery_id": "0080004521", "reason_code": "TRAFFIC"}
+{"ts": "22:22:34", "actor": "conflict", "summary": "New state conflicts with dock closing time \u2014 surfacing to a human unprompted"}
+{"ts": "22:22:34", "actor": "agent", "summary": "@Sari DO 0080004521 sekarang perkiraan tiba 23:00, tapi DOCK-02 tutup 22:00. Opsi: (a) perpanjang shift, (b) reschedule besok pagi 06:00. Mana yang diambil?"}
