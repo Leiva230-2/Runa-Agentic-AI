@@ -7,6 +7,21 @@ load_dotenv()
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
 
+# ---- Where Runa's brain runs -------------------------------------------
+#   sapaicore — Claude on SAP AI Core (Generative AI Hub), served via AWS Bedrock
+#   anthropic — the Anthropic API directly: the fallback if AI Core misbehaves
+AI_PROVIDER = os.getenv("AI_PROVIDER", "anthropic").strip().lower()
+
+AICORE_CLIENT_ID = os.getenv("AICORE_CLIENT_ID")
+AICORE_CLIENT_SECRET = os.getenv("AICORE_CLIENT_SECRET")
+AICORE_AUTH_URL = os.getenv("AICORE_AUTH_URL")
+AICORE_API_URL = os.getenv("AICORE_API_URL")
+AICORE_RESOURCE_GROUP = os.getenv("AICORE_RESOURCE_GROUP", "default")
+# anthropic--claude-4.6-sonnet in the hackathon's AI Core. AI Core has no
+# Haiku, so on sapaicore the Listener and the Resolver both use this one.
+AICORE_DEPLOYMENT = os.getenv("AICORE_DEPLOYMENT", "dc9594f579d3e4c1")
+
+# Anthropic API models (only used when AI_PROVIDER=anthropic).
 # If you get a model_not_found (404) error, swap these. Run check_models.py to
 # find which strings your account can call.
 MODEL_LISTENER = os.getenv("MODEL_LISTENER", "claude-haiku-4-5")
@@ -39,6 +54,7 @@ INBOUND_DELIVERIES = {
         "PlannedGoodsReceipt": "2026-09-09T21:00:00",
         "ReceivingPlant": "1710",
         "ReceivingDock": "DOCK-02",
+        "DockOpeningTime": "06:00",
         "DockClosingTime": "22:00",
         "Status": "In transit",
         "CarrierContact": "Budi Santoso",
@@ -55,6 +71,7 @@ INBOUND_DELIVERIES = {
         "PlannedGoodsReceipt": "2026-09-10T08:00:00",
         "ReceivingPlant": "1710",
         "ReceivingDock": "DOCK-01",
+        "DockOpeningTime": "06:00",
         "DockClosingTime": "22:00",
         "Status": "In transit",
         "CarrierContact": "Rudi Hartono",
@@ -71,6 +88,7 @@ INBOUND_DELIVERIES = {
         "PlannedGoodsReceipt": "2026-09-11T14:00:00",
         "ReceivingPlant": "1710",
         "ReceivingDock": "DOCK-02",
+        "DockOpeningTime": "06:00",
         "DockClosingTime": "22:00",
         "Status": "Planned",
         "CarrierContact": "Budi Santoso",
@@ -87,8 +105,43 @@ CHANNEL_MEMORY = {
     "Sari": "Warehouse supervisor, Cikarang DC. Owns dock scheduling.",
 }
 
+# The "forms" Runa knows how to fill in. Anything work-related outside these
+# is OTHER_OPERATIONAL: Runa understands it, but forwards it to a human.
+# Everyday names people use for each material. In production these come from
+# the material master (descriptions and synonyms). Only DISTINCTIVE names:
+# "kardus" alone is too generic — every delivery here comes in cartons.
+MATERIAL_ALIASES = {
+    "FG-4471": ["mie", "mi instan", "indomie", "noodle", "noodles"],
+    "PKG-1120": ["shipper", "corrugated", "kardus kosong", "karton kosong"],
+}
+
 EVENT_TYPES = [
-    "DELIVERY_DELAY",
-    "GOODS_RECEIPT_DISCREPANCY",
-    "QUALITY_COMPLAINT",
+    "ETA_CHANGE",                 # arriving earlier OR later than planned
+    "GOODS_RECEIPT_DISCREPANCY",  # arrived short
+    "QUALITY_COMPLAINT",          # arrived damaged, wet, wrong item
+    "OTHER_OPERATIONAL",          # work-related, but no form for it
 ]
+SUPPORTED_EVENTS = {"ETA_CHANGE", "GOODS_RECEIPT_DISCREPANCY", "QUALITY_COMPLAINT"}
+
+# ---- The rulebook. Code enforces these; the AI never decides them. ----
+MAX_ETA_SHIFT_HOURS = 24      # moving a delivery by more than this needs a human
+MAX_SHORTAGE_RATIO = 0.5      # "short" more than half the delivery? a human checks
+MAX_QUESTIONS_PER_EVENT = 2   # after this many questions, a human takes over
+
+# Who may choose an option (a/b) when Runa escalates a conflict.
+# In Telegram, the group's ADMINS are added automatically — make your
+# supervisors admins of the ops group. This list is the fallback for the
+# replay scripts and tests, which have no Telegram. Comma-separated names.
+SUPERVISORS = [s.strip() for s in os.getenv("RUNA_SUPERVISORS", "Sari").split(",")
+               if s.strip()]
+
+# The demo story takes place on this evening, and the seed data matches it.
+# Set RUNA_NOW=live in .env to use the real clock (with real SAP data).
+DEMO_NOW = os.getenv("RUNA_NOW", "2026-09-09T19:42:00")
+
+
+def now():
+    from datetime import datetime
+    if DEMO_NOW == "live":
+        return datetime.now().replace(microsecond=0)
+    return datetime.fromisoformat(DEMO_NOW)

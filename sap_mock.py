@@ -24,6 +24,7 @@ SERVICE = "/sap/opu/odata/sap/API_INBOUND_DELIVERY_SRV"
 
 DB = deepcopy(INBOUND_DELIVERIES)
 MATERIAL_DOCUMENTS: list[dict] = []
+QUALITY_NOTIFICATIONS: list[dict] = []
 CHANGE_LOG: list[dict] = []
 
 
@@ -31,6 +32,17 @@ class DeliveryPatch(BaseModel):
     PlannedGoodsReceipt: str | None = None
     Status: str | None = None
     DelayReasonCode: str | None = None
+    SourceMessageRef: str | None = None
+    DockClosingTime: str | None = None
+    ResolutionNote: str | None = None
+
+
+class QualityNotification(BaseModel):
+    """Mirrors the shape of S/4HANA API_QUALITYNOTIFICATION."""
+    InboundDelivery: str
+    Material: str
+    NotificationText: str
+    DefectCode: str
     SourceMessageRef: str | None = None
 
 
@@ -90,11 +102,38 @@ def post_material_document(doc: MaterialDocument):
     return {"d": record}
 
 
+@app.post("/sap/opu/odata/sap/API_QUALITYNOTIFICATION/A_QualityNotification")
+def post_quality_notification(qn: QualityNotification):
+    if qn.InboundDelivery not in DB:
+        raise HTTPException(404, f"Inbound delivery {qn.InboundDelivery} not found")
+    number = f"20000{len(QUALITY_NOTIFICATIONS) + 1:04d}"
+    record = {
+        "QualityNotification": number,
+        "NotificationType": "Q2",          # S/4 type for supplier complaints
+        "CreationDate": datetime.now().strftime("%Y-%m-%d"),
+        **qn.model_dump(),
+    }
+    QUALITY_NOTIFICATIONS.append(record)
+    return {"d": record}
+
+
+@app.post("/_debug/reset")
+def debug_reset():
+    """Not part of the SAP contract — puts the demo data back to the start."""
+    DB.clear()
+    DB.update(deepcopy(INBOUND_DELIVERIES))
+    MATERIAL_DOCUMENTS.clear()
+    QUALITY_NOTIFICATIONS.clear()
+    CHANGE_LOG.clear()
+    return {"reset": True}
+
+
 @app.get("/_debug/state")
 def debug_state():
     """Not part of the SAP contract — used by the demo to show what landed."""
     return {
         "deliveries": DB,
         "material_documents": MATERIAL_DOCUMENTS,
+        "quality_notifications": QUALITY_NOTIFICATIONS,
         "change_log": CHANGE_LOG,
     }

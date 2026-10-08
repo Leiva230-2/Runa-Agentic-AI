@@ -18,6 +18,8 @@ C = {
     "resolver": "\033[35m",   # magenta
     "transactor": "\033[33m", # yellow
     "conflict": "\033[31m",   # red
+    "policy": "\033[37m",     # white
+    "handoff": "\033[91m",    # bright red
     "human": "\033[32m",      # green
     "agent": "\033[94m",      # blue
     "dim": "\033[2m",
@@ -52,7 +54,7 @@ class Trace:
         print(f"{C['dim']}{e['ts']}{C['off']}  "
               f"{colour}{C['bold']}{label:<11}{C['off']} {e['summary']}")
         for key in ("identity_confidence", "content_confidence",
-                    "delivery_id", "document", "reason_code"):
+                    "delivery_id", "document", "reason_code", "question_number"):
             if key in e:
                 print(f"{'':>13}{C['dim']}{key}: {e[key]}{C['off']}")
 

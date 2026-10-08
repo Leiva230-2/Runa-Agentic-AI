@@ -38,6 +38,17 @@ python replay.py
 python bot.py
 ```
 
+`replay.py` runs the identical pipeline without Telegram. Use
+`python replay.py surprises` to throw unrehearsed messages at it.
+
+**Before every demo, run the safety tests** (fake AI, free, seconds):
+
+```bash
+python test_surprises.py
+```
+
+In Telegram, `/reset` puts the SAP data back to the start between takes.
+
 `replay.py` runs the identical pipeline without Telegram. Use it to capture
 your trace, and as the fallback if Telegram misbehaves during the demo.
 
@@ -107,3 +118,28 @@ Then remove and re-add the bot to the group. This is the most common failure.
 
 **Agent asks a question every time.** Lower `CONFIDENCE_THRESHOLD` toward 0.75.
 Raise it toward 0.9 if it writes when it should have asked.
+
+## Supervisors
+
+When Runa escalates a conflict ("opsi a / opsi b"), only a supervisor can
+choose. In Telegram, **supervisors are the group's admins**: make your dock
+supervisors admins of the ops group. `/status` shows who Runa sees as
+supervisor. Replay scripts and tests use `RUNA_SUPERVISORS` from `.env`
+(default: Sari).
+
+## Test matrix
+
+`runa_test_matrix.xlsx` holds 126 test messages (82 tune, 44 holdout). Its
+"Read me" sheet explains the rules.
+
+```bash
+uvicorn sap_mock:app --port 8000      # terminal 1
+python run_tests.py                   # terminal 2: full baseline
+python run_tests.py --split tune      # while fixing Runa
+python run_tests.py --split tune --repeat 3
+python run_tests.py --split tune --only HDG,M06
+```
+
+Results land in `results/`. Open `runa_test_matrix_results.xlsx` in Excel for the
+scoreboard. **Never give `runa_results_holdout.csv` to whoever is fixing Runa** —
+the holdout pass rate only means something if nobody tuned against it.
