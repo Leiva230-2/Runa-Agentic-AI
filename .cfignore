@@ -1,0 +1,10 @@
+
+.env
+.venv/
+.git/
+__pycache__/
+logs/
+results/
+*.xlsx
+*.csv
+*.zip
