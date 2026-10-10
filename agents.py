@@ -446,3 +446,12 @@ def apply_decision(delivery: dict, kind: str, choice: str,
                          "SourceMessageRef": source_ref})
     return (f"Siap. DO {did} dijadwalkan bongkar jam {opening}, truk menunggu. "
             f"Tercatat di SAP.")
+
+def report_event(event: dict) -> None:
+
+    try:
+        r = httpx.post(f"{SAP_BASE}/runa/events", json=event, timeout=3)
+        if r.status_code >= 400:
+            print(f"[report_event] rejected ({r.status_code}): {r.text[:200]}")
+    except httpx.HTTPError as e:
+        print(f"[report_event] could not reach runa-sap: {e}")
