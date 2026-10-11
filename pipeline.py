@@ -11,7 +11,7 @@ Safety rule: Runa never crashes and never guesses. When something is wrong,
 unclear, or outside its forms, it says so and hands over to a human.
 """
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 import agents
 import checks
@@ -29,6 +29,15 @@ REASON_TEXT = {
     "WEATHER": "cuaca",
     "EARLY_DISPATCH": "berangkat lebih awal",
 }
+
+STEP_NAMES = {
+    "listener" : "Listener",
+    "resolver" : "Resolver",
+    "policy" : "Rules",
+    "transactor" : "Transactor",
+    "conflict" : "Conflict check", 
+}
+WIB = timezone(timedelta(hours=7))
 
 
 @dataclass
@@ -81,9 +90,9 @@ class Authority:
 
 
 class Runa:
-    def __init__(self, trace: Trace | None = None,
-                 authority: Authority | None = None):
+    def __init__(self, trace: Trace | None = None, authority: Authority | None = None, report: bool = False):
         self.trace = trace or Trace()
+        self.report = report
         self.authority = authority or Authority()
         self._sender_id = None
         self.conversation: list[str] = []
@@ -97,15 +106,23 @@ class Runa:
         """Process one message. NEVER raises: any failure becomes a handoff.
         sender_id: the Telegram user ID, so people are told apart by ID, not name."""
         self._sender_id = sender_id
+        start = len(self.trace.events)
         self.conversation.append(f"{sender}: {message}")
         self.trace.log("human", f"{sender}: {message}")
         try:
-            return self._route(sender, message)
+            replies = self._route(sender, message)
         except agents.ModelError as e:
-            return self._handoff("Sistem AI sedang gangguan", detail=str(e))
+            replies = self._handoff("Sistem AI sedang bermasalah", detail=str(e))
         except Exception as e:                       # SAP down, bad data, bugs
-            return self._handoff("Ada gangguan sistem",
-                                 detail=f"{type(e).__name__}: {e}")
+            replies = self._handoff("Ada gangguan di sistem", detail=f"{type(e).__name__}: {e}")
+
+        if self.report:
+            try:
+                self._report(sender, message, self.trace.events[start:])
+            except Exception as e:
+                print(f"[report] skipped: {type(e).__name__}: {e}")
+        return replies
+
 
     def _who(self, sender: str):
         return self._sender_id if self._sender_id is not None else sender
@@ -148,8 +165,8 @@ class Runa:
         # 4. Several reports in one message -> human, so none gets dropped
         if (candidate.get("event_count") or 1) > 1:
             return self._handoff(
-                "Ada beberapa laporan dalam satu pesan. "
-                "terlewat", detail=f"{candidate.get('event_count')} events in one message")
+                "Ada beberapa laporan dalam satu pesan. ", 
+                detail=f"{candidate.get('event_count')} events in one message")
 
         # 5. Understood, but Runa has no form for it -> human
         if candidate.get("event_type") not in SUPPORTED_EVENTS:
@@ -459,6 +476,68 @@ class Runa:
         self._wrote(f"Executed option {result['choice']}", pd.delivery_id)
         self.trace.log("agent", confirmation)
         return [confirmation]
+
+        # =========================================================== dashboard
+    def _report(self, sender: str, message: str, steps: list[dict]):
+        """Turn the trace lines of ONE message into a dashboard event."""
+        actors = [s["actor"] for s in steps]
+
+        # 1. What did Runa decide? (the order matters: handoff beats everything)
+        if "handoff" in actors:
+            decision = "handoff"
+        elif "transactor" in actors:
+            decision = "written"
+        elif any("question_number" in s for s in steps):
+            decision = "asked"
+        else:
+            decision = "ignored"
+
+        # 2. The details, picked out of the trace lines
+        scored = [s for s in steps if "identity_confidence" in s]
+        scores = scored[-1] if scored else {}
+        delivery = next((s["delivery_id"] for s in reversed(steps)
+                         if s.get("delivery_id")), None)
+        document = next((s["document"] for s in steps if s.get("document")), None)
+        question = next((s["summary"] for s in steps if "question_number" in s), None)
+        reason = next((s["summary"] for s in reversed(steps)
+                       if s["actor"] in ("listener", "resolver", "policy",
+                                         "transactor", "handoff")), "")
+        hedge = checks.hedge_word(message)
+
+        # 3. Where the time went: each step = time since the line before it
+        timings = {}
+        for before, step in zip(steps, steps[1:]):
+            name = STEP_NAMES.get(step["actor"])
+            if name:
+                ms = round((step["t"] - before["t"]) * 1000)
+                timings[name] = timings.get(name, 0) + ms
+
+        agents.report_event({
+            "ts": datetime.now(WIB).strftime("%H:%M"),
+            "sender": sender,
+            "text": message,
+            "decision": decision,
+            "e": scores.get("identity_confidence") or 0,
+            "v": scores.get("content_confidence") or 0,
+            "hedges": [hedge] if hedge else [],
+            "resolved": delivery,
+            "doc": document,
+            "q": question,
+            "note": reason,
+            "timings": timings,
+        })
+
+        # 4. Runa raised a dock conflict on its own? That's a second event.
+        for i, step in enumerate(steps):
+            if step["actor"] == "conflict":
+                agents.report_event({
+                    "ts": datetime.now(WIB).strftime("%H:%M"),
+                    "sender": "Runa",
+                    "text": steps[i + 1]["summary"],   # the message Runa posted
+                    "decision": "conflict",
+                    "resolved": delivery,
+                    "note": step["summary"],
+                })
 
     # ============================================================ handoff
     def _handoff(self, reason: str, detail: str = "") -> list[str]:

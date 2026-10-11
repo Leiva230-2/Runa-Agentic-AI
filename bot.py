@@ -38,7 +38,7 @@ def session(chat_id: int) -> Runa:
     if chat_id not in sessions:
         # In Telegram, supervisors come ONLY from the group's admin list —
         # never from a name, which anyone could share.
-        sessions[chat_id] = Runa(trace, Authority(names=[]))
+                sessions[chat_id] = Runa(trace, Authority(names=[]), report=True)
     return sessions[chat_id]
 
 

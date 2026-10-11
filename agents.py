@@ -448,7 +448,9 @@ def apply_decision(delivery: dict, kind: str, choice: str,
             f"Tercatat di SAP.")
 
 def report_event(event: dict) -> None:
-
+    """Tell runa-sap what runa just did, so that it can update the dashboard
+    of error / disconnected from server, runa should still be working.
+    """
     try:
         r = httpx.post(f"{SAP_BASE}/runa/events", json=event, timeout=3)
         if r.status_code >= 400:

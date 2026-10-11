@@ -14,11 +14,18 @@ from copy import deepcopy
 from datetime import datetime
 
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 from config import INBOUND_DELIVERIES
 
 app = FastAPI(title="Mock S/4HANA — API_INBOUND_DELIVERY_SRV")
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"], ## should only be dashboard address
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 SERVICE = "/sap/opu/odata/sap/API_INBOUND_DELIVERY_SRV"
 
@@ -26,6 +33,7 @@ DB = deepcopy(INBOUND_DELIVERIES)
 MATERIAL_DOCUMENTS: list[dict] = []
 QUALITY_NOTIFICATIONS: list[dict] = []
 CHANGE_LOG: list[dict] = []
+RUNA_EVENTS: list[dict] = []
 
 
 class DeliveryPatch(BaseModel):
@@ -45,6 +53,19 @@ class QualityNotification(BaseModel):
     DefectCode: str
     SourceMessageRef: str | None = None
 
+class RunaEvent(BaseModel):
+    ts: str
+    sender: str
+    text: str
+    decision: str
+    e: float = 0
+    v: float = 0
+    hedges: list[str] = []
+    resolved: str | None = None
+    doc: str | None = None
+    q: str | None = None
+    note: str = ""
+    timings: dict = {}
 
 class MaterialDocument(BaseModel):
     InboundDelivery: str
@@ -117,6 +138,18 @@ def post_quality_notification(qn: QualityNotification):
     return {"d": record}
 
 
+@app.post("/runa/events")
+def add_event(event: RunaEvent):
+    """Runa reports what it just did."""
+    record = {"id": len(RUNA_EVENTS) + 1, **event.model_dump()}
+    RUNA_EVENTS.append(record)
+    return record
+
+@app.get("/runa/events")
+def list_events():
+    """Reads and lists everything that runa did"""
+    return RUNA_EVENTS
+
 @app.post("/_debug/reset")
 def debug_reset():
     """Not part of the SAP contract — puts the demo data back to the start."""
@@ -125,6 +158,7 @@ def debug_reset():
     MATERIAL_DOCUMENTS.clear()
     QUALITY_NOTIFICATIONS.clear()
     CHANGE_LOG.clear()
+    RUNA_EVENTS.clear()
     return {"reset": True}
 
 

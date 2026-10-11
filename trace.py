@@ -9,6 +9,7 @@ In production this is AgentCore Observability.
 """
 import json
 import os
+import time
 from datetime import datetime
 
 from config import TRACE_FILE
@@ -40,6 +41,7 @@ class Trace:
             "actor": actor,
             "summary": summary,
             **detail,
+            "t": time.perf_counter(),
         }
         self.events.append(entry)
         with open(TRACE_FILE, "a") as fh:
