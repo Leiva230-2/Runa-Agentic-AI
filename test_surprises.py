@@ -460,6 +460,63 @@ def test_product_on_right_delivery_writes():
           len(sap()["quality_notifications"]) == 1)
 
 
+# --------------------------------------- found in the live test, 12 Oct ---
+def test_yes_to_proposed_delivery_settles_identity():
+    ai, r = fresh()
+    ai.listens = [event("ETA_CHANGE")]
+    ask = "Apakah ini untuk delivery 0080004521?"
+    ai.resolves = [res(ident=0.82, new_eta="2026-09-09T23:00:00", clarifying_question=ask),
+                   res(ident=0.82, new_eta="2026-09-09T23:00:00", reason_code="TRAFFIC")]
+    r.handle("Van", "Pak macet parah di tol Cikampek, sudah pasti sampai jam 23:00")
+    ai.answers = [{"answers_index": 0}]
+    r.handle("Van", "iya")
+    check("'iya' to 'is this DO 4521?' settles identity, even from an unknown sender",
+          r.written == 1)
+
+
+def test_no_to_proposed_delivery_is_not_a_yes():
+    ai, r = fresh()
+    ai.listens = [event("ETA_CHANGE")]
+    ask = "Apakah ini untuk delivery 0080004521?"
+    ai.resolves = [res(ident=0.82, new_eta="2026-09-09T23:00:00", clarifying_question=ask),
+                   res(ident=0.82, new_eta="2026-09-09T23:00:00",
+                       clarifying_question="Kalau begitu DO yang mana?")]
+    r.handle("Van", "macet, sudah pasti sampai jam 23:00")
+    ai.answers = [{"answers_index": 0}]
+    r.handle("Van", "iya tapi bukan yang itu")
+    check("'iya tapi bukan yang itu' is NOT a confirmation — nothing written",
+          r.written == 0)
+
+
+def test_yes_to_two_options_is_not_a_confirmation():
+    ai, r = fresh()
+    ai.listens = [event("ETA_CHANGE")]
+    ask = "Untuk DO 0080004521 atau DO 0080004530?"
+    ai.resolves = [res(ident=0.6, new_eta="2026-09-09T23:00:00", clarifying_question=ask),
+                   res(ident=0.6, new_eta="2026-09-09T23:00:00",
+                       clarifying_question="Yang mana ya?")]
+    r.handle("Van", "macet, sudah pasti sampai jam 23:00")
+    ai.answers = [{"answers_index": 0}]
+    r.handle("Van", "iya")
+    check("'iya' to an either/or question settles nothing", r.written == 0)
+
+
+def test_duplicate_report_question_closed_after_write():
+    ai, r = fresh()
+    ask = "Apakah ini untuk delivery 0080004521?"
+    ai.listens = [event("ETA_CHANGE"), event("ETA_CHANGE")]
+    ai.resolves = [res(ident=0.82, new_eta="2026-09-09T23:00:00", clarifying_question=ask),
+                   res(ident=0.82, new_eta="2026-09-09T23:00:00", clarifying_question=ask),
+                   res(ident=0.82, new_eta="2026-09-09T23:00:00", reason_code="TRAFFIC")]
+    r.handle("Van", "macet, sudah pasti sampai jam 23:00")
+    ai.answers = [{"answers_index": None}]            # sends the report again
+    r.handle("Van", "macet, sudah pasti sampai jam 23:00")
+    ai.answers = [{"answers_index": 1}]
+    r.handle("Van", "iya")
+    check("Same report sent twice: once it's written, the other question closes",
+          r.written == 1 and not r.pending)
+
+
 # ------------------------------------------------------------------ undo ---
 def test_undo_eta_restores_time_and_cancels_escalation():
     ai, r = fresh()

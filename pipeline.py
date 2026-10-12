@@ -49,6 +49,7 @@ class Pending:
     question: str
     texts: list[str] = field(default_factory=list)   # what the human actually said
     asked: int = 1                                    # questions asked so far
+    delivery_id: str | None = None                    # the AI's best guess when asking
 
 
 @dataclass
@@ -205,15 +206,31 @@ class Runa:
         )
 
         # Code checks the AI's work against what the human literally said
-        mismatch = self._check_delivery_number(texts, res.get("delivery_id"), deliveries)
+        guess = res.get("delivery_id")
+        mismatch = self._check_delivery_number(texts, guess, deliveries)
         if mismatch:
             reason, question = mismatch
             self.trace.log("policy", f"Delivery number check: {reason}")
             return self._ask_or_handoff(candidate, sender, question, texts,
-                                        asked, last_question, reason)
+                                        asked, last_question, reason, guess)
 
         ident = res.get("identity_confidence", 0) or 0
         content = res.get("content_confidence", 0) or 0
+
+        # Runa asked "is this for DO X?" and the reporter said a plain "iya".
+        # That human confirmation settles WHICH delivery — the AI doesn't get
+        # to keep doubting it just because the sender isn't the driver on file.
+        # Content must still pass on its own, and every check below still runs.
+        proposed = checks.proposed_delivery(
+            last_question, {d["InboundDelivery"] for d in deliveries})
+        if (ident < CONFIDENCE_THRESHOLD and proposed
+                and proposed == res.get("delivery_id") and checks.is_yes(texts[-1])):
+            ident = CONFIDENCE_THRESHOLD
+            self.trace.log("policy", f"{sender} confirmed DO {proposed} — "
+                                     f"identity settled by the human",
+                           delivery_id=proposed, identity_confidence=ident,
+                           content_confidence=content)
+
         if ident >= CONFIDENCE_THRESHOLD and content >= CONFIDENCE_THRESHOLD:
             # The AI is sure. Now the CODE checks the facts it can verify.
             doubt = self._fact_check(res, texts, deliveries)
@@ -221,7 +238,7 @@ class Runa:
                 reason, question = doubt
                 self.trace.log("policy", f"Fact check: {reason}")
                 return self._ask_or_handoff(candidate, sender, question, texts,
-                                            asked, last_question, reason)
+                                            asked, last_question, reason, guess)
             return self._gate_and_write(res, deliveries)
 
         weak = "identity" if ident < CONFIDENCE_THRESHOLD else "content"
@@ -231,11 +248,11 @@ class Runa:
                        f"Below threshold on {weak} confidence — asking rather than guessing")
         return self._ask_or_handoff(candidate, sender, question, texts,
                                     asked, last_question,
-                                    f"Below threshold on {weak} confidence")
+                                    f"Below threshold on {weak} confidence", guess)
 
     def _ask_or_handoff(self, candidate: dict, sender: str, question: str,
                         texts: list[str], asked: int, last_question: str,
-                        reason: str) -> list[str]:
+                        reason: str, guess: str | None = None) -> list[str]:
         """Ask another question if the budget allows. Hand off if Runa has
         already asked the maximum, or would just repeat itself."""
         if asked >= MAX_QUESTIONS_PER_EVENT:
@@ -244,13 +261,14 @@ class Runa:
         if question.strip() == last_question.strip():
             return self._handoff("Maaf, saya masih belum yakin",
                                  detail=f"{reason} — would repeat the same question")
-        return self._ask_back(candidate, sender, question, texts, asked + 1)
+        return self._ask_back(candidate, sender, question, texts, asked + 1, guess)
 
     def _ask_back(self, candidate: dict, sender: str, question: str,
-                  texts: list[str], asked: int = 1) -> list[str]:
+                  texts: list[str], asked: int = 1,
+                  guess: str | None = None) -> list[str]:
         """Park the event and ask the person who reported it."""
         self.pending.setdefault(self._who(sender), []).append(
-            Pending(candidate, sender, question, list(texts), asked))
+            Pending(candidate, sender, question, list(texts), asked, guess))
         self.trace.log("agent", question,
                        question_number=f"{asked}/{MAX_QUESTIONS_PER_EVENT}")
         return [question]
@@ -407,6 +425,7 @@ class Runa:
             self.trace.log("policy", f"Blocked: {stop}")
             return self._handoff("Ini perlu dicek manusia dulu", detail=stop)
         self.trace.log("policy", "Passed all rules — writing to SAP")
+        self._drop_stale_questions(res["delivery_id"], res["event_type"])
 
         delivery = {d["InboundDelivery"]: d for d in deliveries}[res["delivery_id"]]
         did = res["delivery_id"]
@@ -479,6 +498,22 @@ class Runa:
             out.append(message)
             self.pending_decision = PendingDecision(did, ckind, message)
         return out
+
+    def _drop_stale_questions(self, did: str, kind: str):
+        """This event is going into SAP now. Any OTHER open question about the
+        same delivery and the same kind of event is already answered — forget
+        it, so a later "p" or "ok" can't wake it up and report it twice."""
+        for who in list(self.pending):
+            keep = [p for p in self.pending[who]
+                    if not (p.delivery_id == did
+                            and p.candidate.get("event_type") == kind)]
+            if len(keep) < len(self.pending[who]):
+                self.trace.log("policy", f"Closed {len(self.pending[who]) - len(keep)} "
+                                         f"older question(s) about DO {did} — already recorded")
+            if keep:
+                self.pending[who] = keep
+            else:
+                del self.pending[who]
 
     def _wrote(self, summary: str, did: str, **detail):
         self.written += 1

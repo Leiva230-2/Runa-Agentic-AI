@@ -47,6 +47,29 @@ def hedge_word(text: str) -> str | None:
     return None
 
 
+# ============================================================= confirmations ==
+# A short "yes" to a question. "iya", "betul pak", "ya benar" — but never
+# anything with a "no" in it ("iya bukan yang itu" is NOT a yes).
+_YES = {"iya", "iyaa", "iy", "ya", "yaa", "y", "yes", "yup", "yap", "betul",
+        "bener", "benar", "bnr", "ok", "oke", "okay", "sip", "siap", "yoi"}
+_NO = {"bukan", "tidak", "tdk", "nggak", "ngga", "gak", "ga", "enggak",
+       "engga", "no", "salah", "belum", "blm"}
+
+
+def is_yes(text: str) -> bool:
+    """True if the message is a short, plain yes."""
+    words = re.findall(r"[a-z]+", text.lower())
+    return (0 < len(words) <= 8 and words[0] in _YES
+            and not any(w in _NO for w in words))
+
+
+def proposed_delivery(question: str, known: set[str]) -> str | None:
+    """The ONE delivery a question of Runa's proposed, e.g. "Apakah ini untuk
+    delivery 0080004521?" -> "0080004521". None if it named zero or several."""
+    named = [d for d in known if d in question]
+    return named[0] if len(named) == 1 else None
+
+
 # ======================================================= delivery numbers ==
 _DO_PREFIX = r"(?:\bdo\b|\bno\.?|\bnomor\b|\bnomer\b|#)\s*[:.]?\s*(\d{3,10})\b"
 
