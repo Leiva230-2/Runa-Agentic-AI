@@ -59,6 +59,18 @@ class PendingDecision:
     options: str
 
 
+@dataclass
+class Undo:
+    """One SAP write Runa made, and how to reverse it.
+    kind: "restore" (put delivery fields back), "shortage" or "quality"
+    (cancel the document Runa created)."""
+    kind: str
+    delivery_id: str
+    label: str                       # what the supervisor sees, in Indonesian
+    before: dict | None = None       # restore: the field values before the write
+    document: str | None = None      # shortage / quality: the document number
+
+
 class Authority:
     """Who may choose an option (a/b) when Runa escalates a conflict.
 
@@ -98,6 +110,7 @@ class Runa:
         self.conversation: list[str] = []
         self.pending: dict = {}   # person (Telegram ID, or name) -> open questions
         self.pending_decision: PendingDecision | None = None
+        self.undo_stack: list[Undo] = []   # newest last; /undo takes from the end
         self.written = 0
         self.handoffs = 0
 
@@ -405,6 +418,11 @@ class Runa:
                                        res["quantity_short"], ref)
             self._wrote(f"Posted material document: {res['quantity_short']} short",
                         did, document=doc["MaterialDocument"])
+            self.undo_stack.append(Undo(
+                "shortage", did,
+                f"kurang {res['quantity_short']} {delivery['DeliveryQuantityUnit']} "
+                f"pada DO {did} (dokumen {doc['MaterialDocument']})",
+                document=doc["MaterialDocument"]))
             return [f"Tercatat di SAP: kurang {res['quantity_short']} "
                     f"{delivery['DeliveryQuantityUnit']} pada DO {did}. "
                     f"Dokumen {doc['MaterialDocument']}."]
@@ -415,6 +433,10 @@ class Runa:
                 res.get("defect_code") or "OTHER", ref)
             self._wrote(f"Created quality notification: {res['defect_description']}",
                         did, document=qn["QualityNotification"])
+            self.undo_stack.append(Undo(
+                "quality", did,
+                f"keluhan kualitas DO {did} (notifikasi {qn['QualityNotification']})",
+                document=qn["QualityNotification"]))
             return [f"Tercatat di SAP: keluhan kualitas untuk DO {did} "
                     f"({res.get('defect_code') or 'OTHER'}). "
                     f"Notifikasi {qn['QualityNotification']}."]
@@ -425,10 +447,15 @@ class Runa:
         status = "Early" if new < old else "Delayed"
         reason = res.get("reason_code") or ("EARLY_DISPATCH" if status == "Early" else "OTHER")
 
+        before = {k: delivery.get(k) for k in
+                  ("PlannedGoodsReceipt", "Status", "DelayReasonCode", "SourceMessageRef")}
         updated = agents.post_eta_change(did, res["new_eta"], status, reason, ref)
         new_hm = res["new_eta"].split("T")[1][:5]
         self._wrote(f"Patched arrival time to {new_hm} ({status})", did,
                     reason_code=reason)
+        self.undo_stack.append(Undo(
+            "restore", did,
+            f"estimasi tiba DO {did} {old:%H:%M} → {new_hm}", before=before))
         why = REASON_TEXT.get(reason)
         label = "lebih cepat" if status == "Early" else "terlambat"
         out = [f"Tercatat di SAP: DO {did} estimasi tiba {new_hm} "
@@ -471,13 +498,80 @@ class Runa:
         self.pending_decision = None
         delivery = {d["InboundDelivery"]: d
                     for d in agents.get_open_deliveries()}[pd.delivery_id]
+        before = {k: delivery.get(k) for k in
+                  ("PlannedGoodsReceipt", "Status", "DockClosingTime",
+                   "ResolutionNote", "SourceMessageRef")}
         confirmation = agents.apply_decision(
             delivery, pd.kind, result["choice"], f"telegram:{len(self.conversation)}")
         self._wrote(f"Executed option {result['choice']}", pd.delivery_id)
+        self.undo_stack.append(Undo(
+            "restore", pd.delivery_id,
+            f"opsi {result['choice']} untuk DO {pd.delivery_id}", before=before))
         self.trace.log("agent", confirmation)
         return [confirmation]
 
-        # =========================================================== dashboard
+        # ================================================================ undo
+    def undo(self, sender: str) -> list[str]:
+        """Supervisor command (/undo): reverse Runa's most recent SAP write.
+
+        Nothing is deleted. SAP gets a NEW transaction that cancels the old
+        one, so the audit trail shows both: what Runa did, and who reversed it.
+        Then Runa checks consequences again, exactly as after a normal write."""
+        if not self.undo_stack:
+            return ["Belum ada catatan Runa di sesi ini yang bisa dibatalkan."]
+        last = self.undo_stack.pop()
+        ref = f"telegram:undo:{len(self.conversation)}"
+        try:
+            if last.kind == "restore":
+                restored = agents.restore_delivery(last.delivery_id, last.before)
+            elif last.kind == "shortage":
+                restored = None
+                agents.cancel_material_document(last.document, ref)
+            else:
+                restored = None
+                agents.cancel_quality_notification(last.document, ref)
+        except Exception as e:                  # nothing changed: keep it undoable
+            self.undo_stack.append(last)
+            self.trace.log("handoff", f"Undo failed — {type(e).__name__}: {e}")
+            return [f"Gagal membatalkan {last.label}. SAP tidak berubah, "
+                    f"silakan coba lagi atau cek manual. 🙏"]
+
+        self.trace.log("transactor", f"Undone by {sender}: {last.label}",
+                       delivery_id=last.delivery_id)
+        out = [f"↩️ Dibatalkan oleh {sender}: {last.label}. "
+               f"Data SAP sudah dikembalikan; jejaknya tetap tercatat."]
+
+        # An open escalation about this delivery may no longer be true
+        if self.pending_decision and self.pending_decision.delivery_id == last.delivery_id:
+            self.pending_decision = None
+            self.trace.log("policy", "Undo — the open escalation for this delivery is cancelled")
+
+        # Putting a time back can re-create a dock conflict. Check, like after any write.
+        conflict = agents.check_conflict(restored) if restored else None
+        if conflict:
+            ckind, body = conflict
+            message = f"{self.authority.mention()} {body}"
+            self.trace.log("conflict", f"After undo the dock conflict is back ({ckind})")
+            out.append(message)
+            self.pending_decision = PendingDecision(last.delivery_id, ckind, message)
+
+        if self.report:
+            agents.report_event({
+                "ts": datetime.now(WIB).strftime("%H:%M"),
+                "sender": sender, "text": "/undo", "decision": "undone",
+                "resolved": last.delivery_id, "doc": last.document,
+                "note": f"Undone: {last.label}",
+            })
+            if conflict:
+                agents.report_event({
+                    "ts": datetime.now(WIB).strftime("%H:%M"),
+                    "sender": "Runa", "text": out[-1], "decision": "conflict",
+                    "resolved": last.delivery_id,
+                    "note": "After undo the dock conflict is back",
+                })
+        return out
+
+    # =========================================================== dashboard
     def _report(self, sender: str, message: str, steps: list[dict]):
         """Turn the trace lines of ONE message into a dashboard event."""
         actors = [s["actor"] for s in steps]

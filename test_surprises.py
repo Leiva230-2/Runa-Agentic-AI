@@ -11,7 +11,7 @@ os.environ.setdefault("ANTHROPIC_API_KEY", "not-needed-for-tests")
 import httpx
 
 import agents
-from config import SAP_BASE
+from config import SAP_BASE, SAP_HEADERS
 from pipeline import Runa
 from trace import Trace
 
@@ -49,7 +49,7 @@ def res(did="0080004521", ident=0.95, content=0.95, **fields):
 
 
 def fresh():
-    httpx.post(f"{SAP_BASE}/_debug/reset", timeout=5)
+    httpx.post(f"{SAP_BASE}/_debug/reset", headers=SAP_HEADERS, timeout=5)
     ai = FakeAI()
     agents.listen, agents.resolve = ai.listen, ai.resolve
     agents.interpret_decision = ai.interpret_decision
@@ -150,7 +150,7 @@ def test_ai_crash_survived():
     agents.listen = broken
     out = r.handle("Budi", "macet parah")
     check("An AI outage becomes a polite handoff, not a crash",
-          r.handoffs == 1 and "gangguan" in out[0])
+          r.handoffs == 1 and "Saya teruskan ke supervisor" in out[0])
 
 
 def test_sap_down_survived():
@@ -458,6 +458,66 @@ def test_product_on_right_delivery_writes():
     r.handle("Budi", "DO 4521 mie-nya basah semua")
     check("Wet noodles on a noodle delivery is written as normal",
           len(sap()["quality_notifications"]) == 1)
+
+
+# ------------------------------------------------------------------ undo ---
+def test_undo_eta_restores_time_and_cancels_escalation():
+    ai, r = fresh()
+    late_conflict(r, ai)
+    out = r.undo("Sari")
+    d = sap()["deliveries"]["0080004521"]
+    check("/undo puts the arrival time back and cancels the escalation",
+          d["PlannedGoodsReceipt"] == "2026-09-09T21:00:00" and d["Status"] == "In transit"
+          and r.pending_decision is None and "Dibatalkan" in out[0])
+    check("...and the change log keeps both the write and the reversal",
+          len(sap()["change_log"]) == 2)
+
+
+def test_undo_shortage_posts_reversal_not_delete():
+    ai, r = fresh()
+    ai.listens = [event("GOODS_RECEIPT_DISCREPANCY")]
+    ai.resolves = [res(event_type="GOODS_RECEIPT_DISCREPANCY", quantity_short=3)]
+    r.handle("Sari", "DO 4521 kurang 3 karton")
+    r.undo("Sari")
+    docs = sap()["material_documents"]
+    check("/undo of a shortage posts a reversal document; nothing is deleted",
+          len(docs) == 2 and docs[0].get("ReversalDocument") == docs[1]["MaterialDocument"]
+          and docs[1]["QuantityInDeliveryUnit"] == -3)
+
+
+def test_undo_quality_cancels_notification():
+    ai, r = fresh()
+    ai.listens = [event("QUALITY_COMPLAINT")]
+    ai.resolves = [res(event_type="QUALITY_COMPLAINT",
+                       defect_description="cartons wet", defect_code="WET")]
+    r.handle("Sari", "DO 4521 kardusnya basah")
+    r.undo("Sari")
+    qns = sap()["quality_notifications"]
+    check("/undo of a complaint marks it CANCELLED (still on record)",
+          len(qns) == 1 and qns[0]["NotificationStatus"] == "CANCELLED")
+
+
+def test_undo_decision_brings_conflict_back():
+    ai, r = fresh()
+    late_conflict(r, ai)
+    ai.decisions = [{"choice": "b"}]
+    r.handle("Sari", "opsi b")
+    out = r.undo("Sari")
+    d = sap()["deliveries"]["0080004521"]
+    check("Undoing 'opsi b' restores 23:00 and asks the supervisor again",
+          d["PlannedGoodsReceipt"] == "2026-09-09T23:00:00" and d["Status"] == "Delayed"
+          and r.pending_decision is not None and any("tutup" in m for m in out))
+    r.undo("Sari")
+    d = sap()["deliveries"]["0080004521"]
+    check("A second /undo goes one step further back, to the original plan",
+          d["PlannedGoodsReceipt"] == "2026-09-09T21:00:00" and r.pending_decision is None)
+
+
+def test_undo_with_nothing_to_undo():
+    ai, r = fresh()
+    out = r.undo("Sari")
+    check("/undo with nothing written says so, touches nothing",
+          "Belum ada" in out[0] and not sap()["change_log"])
 
 
 if __name__ == "__main__":

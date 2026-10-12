@@ -33,6 +33,13 @@ MODEL_RESOLVER = os.getenv("MODEL_RESOLVER", "claude-sonnet-4-6")
 CONFIDENCE_THRESHOLD = float(os.getenv("CONFIDENCE_THRESHOLD", "0.85"))
 
 SAP_BASE = os.getenv("SAP_BASE", "http://127.0.0.1:8000")
+
+# The lock on runa-sap. Anyone may READ (the dashboard only reads), but
+# changing anything needs this key. Empty = no lock, for local development.
+# On the cloud, give runa-sap and runa-bot the SAME value with cf set-env.
+# In real S/4HANA this job is done by SAP's own login (OAuth / technical user).
+RUNA_API_KEY = os.getenv("RUNA_API_KEY", "")
+SAP_HEADERS = {"X-Runa-Key": RUNA_API_KEY} if RUNA_API_KEY else {}
 SAP_SERVICE = "/sap/opu/odata/sap/API_INBOUND_DELIVERY_SRV"
 
 TRACE_FILE = "logs/trace.jsonl"

@@ -15,7 +15,7 @@ import time
 
 import httpx
 
-from config import SAP_BASE
+from config import SAP_BASE, SAP_HEADERS
 from pipeline import Runa
 from trace import C, Trace
 
@@ -71,7 +71,7 @@ def main():
 
     name = sys.argv[1] if len(sys.argv) > 1 else "demo"
     script = SCRIPTS[name]
-    httpx.post(f"{SAP_BASE}/_debug/reset", timeout=5)   # clean ledger every run
+    httpx.post(f"{SAP_BASE}/_debug/reset", headers=SAP_HEADERS, timeout=5)   # clean ledger every run
 
     trace = Trace()
     runa = Runa(trace)

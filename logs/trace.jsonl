@@ -1909,3 +1909,25 @@
 {"ts": "10:45:23", "actor": "listener", "summary": "Candidate OTHER_OPERATIONAL: Forklift in warehouse 2 is broken down again.", "t": 3245.830828208}
 {"ts": "10:45:23", "actor": "handoff", "summary": "Forwarded to human \u2014 No form for this: Forklift in warehouse 2 is broken down again.", "t": 3245.831574583}
 {"ts": "10:45:23", "actor": "agent", "summary": "Laporannya saya terima, tapi ini di luar yang bisa saya proses otomatis. Saya teruskan ke supervisor ya. \ud83d\ude4f", "t": 3245.831781166}
+{"ts": "13:47:11", "actor": "human", "summary": "Budi: siap bu", "t": 12561.440510208}
+{"ts": "13:47:15", "actor": "listener", "summary": "Not a business event \u2014 discarded", "t": 12565.481554083}
+{"ts": "13:47:15", "actor": "human", "summary": "Budi: Pak macet parah di tol Cikampek, kayaknya baru sampai jam 11 malam", "t": 12565.519300458}
+{"ts": "13:47:17", "actor": "listener", "summary": "Candidate ETA_CHANGE: Driver Budi reports heavy traffic on Cikampek toll road and estimates arrival at 11 PM.", "t": 12567.886329166}
+{"ts": "13:47:22", "actor": "resolver", "summary": "Budi is confirmed on delivery 0080004521 via the Cikampek route, giving high identity confidence; however, he used 'kayaknya' (seems like / I think) when estimating jam 11, making the ETA a hedge rather than a firm commitment, so content_confidence is low.", "delivery_id": "0080004521", "identity_confidence": 0.97, "content_confidence": 0.55, "t": 12572.686371083}
+{"ts": "13:47:22", "actor": "resolver", "summary": "Below threshold on content confidence \u2014 asking rather than guessing", "t": 12572.689243583}
+{"ts": "13:47:22", "actor": "agent", "summary": "Bud, kira-kira jam 11 malam itu sudah pasti, atau masih perkiraan? Bisa dikonfirmasi ETA-nya buat kami update sistem?", "question_number": "1/2", "t": 12572.6903285}
+{"ts": "13:47:22", "actor": "human", "summary": "Budi: sudah pasti pak, jam 23:00. sekarang sudah lewat Karawang", "t": 12572.73598575}
+{"ts": "13:47:25", "actor": "resolver", "summary": "Budi answered \u2014 re-scoring with new information", "t": 12575.351990583}
+{"ts": "13:47:28", "actor": "resolver", "summary": "Budi's initial hedged estimate ('kayaknya jam 11 malam') was firmly confirmed in the follow-up message ('sudah pasti pak, jam 23:00'), and his route and channel memory both point unambiguously to delivery 0080004521; note that the new ETA of 23:00 exceeds the dock closing time of 22:00.", "delivery_id": "0080004521", "identity_confidence": 0.97, "content_confidence": 0.95, "t": 12579.046875166}
+{"ts": "13:47:28", "actor": "policy", "summary": "Passed all rules \u2014 writing to SAP", "t": 12579.051660458}
+{"ts": "13:47:28", "actor": "transactor", "summary": "Patched arrival time to 23:00 (Delayed)", "delivery_id": "0080004521", "reason_code": "TRAFFIC", "t": 12579.097830791}
+{"ts": "13:47:28", "actor": "conflict", "summary": "New time conflicts with dock hours (LATE) \u2014 surfacing to a human unprompted", "t": 12579.098424125}
+{"ts": "13:47:28", "actor": "agent", "summary": "@Sari DO 0080004521 sekarang perkiraan tiba 23:00, tapi DOCK-02 tutup 22:00. Opsi: (a) perpanjang shift, (b) reschedule besok pagi 06:00. Mana yang diambil?", "t": 12579.098558541}
+{"ts": "13:47:28", "actor": "human", "summary": "Sari: opsi b runa", "t": 12579.145299541}
+{"ts": "13:47:31", "actor": "resolver", "summary": "Human chose option b \u2014 The human explicitly said 'opsi b'.", "t": 12581.392436791}
+{"ts": "13:47:31", "actor": "transactor", "summary": "Executed option b", "delivery_id": "0080004521", "t": 12581.465317291}
+{"ts": "13:47:31", "actor": "agent", "summary": "Siap. DO 0080004521 dijadwalkan ulang ke 10/09 06:00. Tercatat di SAP.", "t": 12581.465558}
+{"ts": "13:47:31", "actor": "human", "summary": "Sari: forklift di gudang 2 rusak lagi", "t": 12581.484591416}
+{"ts": "13:47:33", "actor": "listener", "summary": "Candidate OTHER_OPERATIONAL: Forklift in warehouse 2 is broken down again.", "t": 12583.871590041}
+{"ts": "13:47:33", "actor": "handoff", "summary": "Forwarded to human \u2014 No form for this: Forklift in warehouse 2 is broken down again.", "t": 12583.87351425}
+{"ts": "13:47:33", "actor": "agent", "summary": "Laporannya saya terima, tapi ini di luar yang bisa saya proses otomatis. Saya teruskan ke supervisor ya. \ud83d\ude4f", "t": 12583.875100875}

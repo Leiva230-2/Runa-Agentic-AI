@@ -26,7 +26,8 @@ import httpx
 from config import (AI_PROVIDER, AICORE_API_URL, AICORE_AUTH_URL,
                     AICORE_CLIENT_ID, AICORE_CLIENT_SECRET, AICORE_DEPLOYMENT,
                     AICORE_RESOURCE_GROUP, CHANNEL_MEMORY, EVENT_TYPES,
-                    MODEL_LISTENER, MODEL_RESOLVER, SAP_BASE, SAP_SERVICE, now)
+                    MODEL_LISTENER, MODEL_RESOLVER, SAP_BASE, SAP_HEADERS,
+                    SAP_SERVICE, now)
 
 QN_SERVICE = "/sap/opu/odata/sap/API_QUALITYNOTIFICATION"
 
@@ -312,7 +313,8 @@ def match_answer(message: str, questions: list[str]) -> dict:
 # ------------------------------------------------- Transactor (the "forms")
 
 def _sap(method: str, path: str, body: dict | None = None) -> dict:
-    r = httpx.request(method, f"{SAP_BASE}{path}", json=body, timeout=10)
+    r = httpx.request(method, f"{SAP_BASE}{path}", json=body,
+                      headers=SAP_HEADERS, timeout=10)
     r.raise_for_status()
     return r.json()["d"]
 
@@ -357,6 +359,27 @@ def post_quality_notification(delivery_id: str, material: str, text: str,
         "DefectCode": defect_code,
         "SourceMessageRef": source_ref,
     })
+
+
+# ------------------------------------------------------------- Undo (reversals)
+# Nothing in SAP is ever deleted. An undo is a NEW transaction that cancels
+# the old one, so the audit trail shows both: what Runa did, and who reversed it.
+
+def restore_delivery(delivery_id: str, before: dict) -> dict:
+    """Put an inbound delivery's fields back to what they were."""
+    return _sap("PATCH", f"{SAP_SERVICE}/A_InboundDelivery('{delivery_id}')", before)
+
+
+def cancel_material_document(number: str, source_ref: str) -> dict:
+    """Post a reversal document that cancels a shortage posting."""
+    return _sap("POST", f"{SAP_SERVICE}/A_MaterialDocumentHeader('{number}')/Cancel",
+                {"SourceMessageRef": source_ref})
+
+
+def cancel_quality_notification(number: str, source_ref: str) -> dict:
+    """Mark a quality notification as cancelled."""
+    return _sap("POST", f"{QN_SERVICE}/A_QualityNotification('{number}')/Cancel",
+                {"SourceMessageRef": source_ref})
 
 
 # ---------------------------------------------------------------- Conflict
@@ -452,7 +475,8 @@ def report_event(event: dict) -> None:
     of error / disconnected from server, runa should still be working.
     """
     try:
-        r = httpx.post(f"{SAP_BASE}/runa/events", json=event, timeout=3)
+        r = httpx.post(f"{SAP_BASE}/runa/events", json=event,
+                       headers=SAP_HEADERS, timeout=3)
         if r.status_code >= 400:
             print(f"[report_event] rejected ({r.status_code}): {r.text[:200]}")
     except httpx.HTTPError as e:

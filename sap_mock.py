@@ -10,14 +10,16 @@ change to SAP_BASE in .env and nothing else.
 
 Run with:  uvicorn sap_mock:app --port 8000
 """
+import secrets
 from copy import deepcopy
 from datetime import datetime
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
-from config import INBOUND_DELIVERIES
+from config import INBOUND_DELIVERIES, RUNA_API_KEY
 
 app = FastAPI(title="Mock S/4HANA — API_INBOUND_DELIVERY_SRV")
 app.add_middleware(
@@ -26,6 +28,21 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+
+@app.middleware("http")
+async def require_key(request: Request, call_next):
+    """The lock. Reading is open, because the dashboard only reads.
+    Changing anything (POST, PATCH) needs the secret key, so a stranger who
+    finds this address can't write fake data or wipe the demo."""
+    if RUNA_API_KEY and request.method not in ("GET", "HEAD", "OPTIONS"):
+        given = request.headers.get("X-Runa-Key", "")
+        if not secrets.compare_digest(given, RUNA_API_KEY):
+            return JSONResponse({"detail": "Missing or wrong X-Runa-Key"},
+                                status_code=401)
+    return await call_next(request)
+
 
 SERVICE = "/sap/opu/odata/sap/API_INBOUND_DELIVERY_SRV"
 
@@ -52,6 +69,11 @@ class QualityNotification(BaseModel):
     NotificationText: str
     DefectCode: str
     SourceMessageRef: str | None = None
+
+class CancelRequest(BaseModel):
+    """Who/what asked for a reversal — kept for the audit trail."""
+    SourceMessageRef: str | None = None
+
 
 class RunaEvent(BaseModel):
     ts: str
@@ -96,7 +118,9 @@ def patch_delivery(delivery_id: str, patch: DeliveryPatch):
         raise HTTPException(404, f"Inbound delivery {delivery_id} not found")
 
     before = deepcopy(DB[delivery_id])
-    changes = patch.model_dump(exclude_none=True)
+    # Only the fields the caller actually sent. A field sent as null is set to
+    # null — that's how an undo puts back a value that was empty before.
+    changes = patch.model_dump(exclude_unset=True)
     DB[delivery_id].update(changes)
     DB[delivery_id]["LastChangeDateTime"] = datetime.now().isoformat(timespec="seconds")
 
@@ -123,6 +147,29 @@ def post_material_document(doc: MaterialDocument):
     return {"d": record}
 
 
+@app.post(f"{SERVICE}/A_MaterialDocumentHeader('{{number}}')/Cancel")
+def cancel_material_document(number: str, req: CancelRequest):
+    """Undo of a posting. Like real S/4HANA, nothing is deleted: a REVERSAL
+    document is posted that cancels the original, and both stay on record."""
+    original = next((d for d in MATERIAL_DOCUMENTS
+                     if d["MaterialDocument"] == number), None)
+    if not original:
+        raise HTTPException(404, f"Material document {number} not found")
+    if original.get("ReversalDocument"):
+        raise HTTPException(409, f"Material document {number} is already cancelled")
+    reversal = {
+        **original,
+        "MaterialDocument": f"50000{len(MATERIAL_DOCUMENTS) + 1:04d}",
+        "PostingDate": datetime.now().strftime("%Y-%m-%d"),
+        "QuantityInDeliveryUnit": -original["QuantityInDeliveryUnit"],
+        "ReversedMaterialDocument": number,
+        "SourceMessageRef": req.SourceMessageRef,
+    }
+    MATERIAL_DOCUMENTS.append(reversal)
+    original["ReversalDocument"] = reversal["MaterialDocument"]
+    return {"d": reversal}
+
+
 @app.post("/sap/opu/odata/sap/API_QUALITYNOTIFICATION/A_QualityNotification")
 def post_quality_notification(qn: QualityNotification):
     if qn.InboundDelivery not in DB:
@@ -132,10 +179,26 @@ def post_quality_notification(qn: QualityNotification):
         "QualityNotification": number,
         "NotificationType": "Q2",          # S/4 type for supplier complaints
         "CreationDate": datetime.now().strftime("%Y-%m-%d"),
+        "NotificationStatus": "OUTSTANDING",
         **qn.model_dump(),
     }
     QUALITY_NOTIFICATIONS.append(record)
     return {"d": record}
+
+
+@app.post("/sap/opu/odata/sap/API_QUALITYNOTIFICATION/"
+          "A_QualityNotification('{number}')/Cancel")
+def cancel_quality_notification(number: str, req: CancelRequest):
+    """Undo of a complaint: the notification is marked cancelled, not deleted."""
+    qn = next((q for q in QUALITY_NOTIFICATIONS
+               if q["QualityNotification"] == number), None)
+    if not qn:
+        raise HTTPException(404, f"Quality notification {number} not found")
+    if qn["NotificationStatus"] == "CANCELLED":
+        raise HTTPException(409, f"Quality notification {number} is already cancelled")
+    qn["NotificationStatus"] = "CANCELLED"
+    qn["CancellationRef"] = req.SourceMessageRef
+    return {"d": qn}
 
 
 @app.post("/runa/events")

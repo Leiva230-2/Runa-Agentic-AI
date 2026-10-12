@@ -22,7 +22,7 @@ from telegram import Update
 from telegram.ext import (Application, ContextTypes, MessageHandler,
                           CommandHandler, filters)
 
-from config import SAP_BASE, TELEGRAM_TOKEN
+from config import SAP_BASE, SAP_HEADERS, TELEGRAM_TOKEN
 import agents
 from pipeline import Authority, Runa
 from trace import Trace
@@ -97,9 +97,23 @@ async def on_reset(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id not in runa.authority.admin_ids:
         await update.message.reply_text("Maaf, /reset hanya untuk admin grup.")
         return
-    httpx.post(f"{SAP_BASE}/_debug/reset", timeout=5)
+    httpx.post(f"{SAP_BASE}/_debug/reset", headers=SAP_HEADERS, timeout=5)
     sessions.pop(update.message.chat_id, None)
     await update.message.reply_text("Reset. Data SAP dan memori Runa kembali ke awal.")
+
+
+async def on_undo(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    """Supervisor: reverse Runa's most recent SAP write. Admins only."""
+    runa = session(update.message.chat_id)
+    await refresh_supervisors(update, ctx, runa, force=True)
+    user = update.effective_user
+    if user.id not in runa.authority.admin_ids:
+        await update.message.reply_text("Maaf, /undo hanya untuk supervisor (admin grup).")
+        return
+    name = user.first_name or user.username or "Supervisor"
+    replies = await asyncio.to_thread(runa.undo, name)
+    for reply in replies:
+        await update.message.reply_text(reply)
 
 
 def main():
@@ -109,6 +123,7 @@ def main():
     app = Application.builder().token(TELEGRAM_TOKEN).build()
     app.add_handler(CommandHandler("status", on_status))
     app.add_handler(CommandHandler("reset", on_reset))
+    app.add_handler(CommandHandler("undo", on_undo))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, on_message))
 
     print("Runa listening. Add the bot to your group and start talking.")

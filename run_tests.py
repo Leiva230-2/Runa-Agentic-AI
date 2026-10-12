@@ -31,7 +31,7 @@ import httpx
 from openpyxl import load_workbook
 
 import agents
-from config import MODEL_LISTENER, SAP_BASE
+from config import MODEL_LISTENER, SAP_BASE, SAP_HEADERS
 from pipeline import Runa
 from trace import Trace
 
@@ -76,7 +76,8 @@ def sap_state() -> dict:
 
 
 def sap_reset():
-    httpx.post(f"{SAP_BASE}/_debug/reset", timeout=10).raise_for_status()
+    httpx.post(f"{SAP_BASE}/_debug/reset", headers=SAP_HEADERS,
+               timeout=10).raise_for_status()
 
 
 def diff(before: dict, after: dict) -> dict:
