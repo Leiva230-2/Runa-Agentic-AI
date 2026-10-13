@@ -179,7 +179,7 @@ class Runa:
         # 4. Several reports in one message -> human, so none gets dropped
         if (candidate.get("event_count") or 1) > 1:
             return self._handoff(
-                "Ada beberapa laporan dalam satu pesan. ", 
+                "Ada beberapa laporan dalam satu pesan",
                 detail=f"{candidate.get('event_count')} events in one message")
 
         # 5. Understood, but Runa has no form for it -> human

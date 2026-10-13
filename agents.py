@@ -237,6 +237,11 @@ caused it. Missing optional details must NOT lower content_confidence and must
 NEVER be the subject of a clarifying question. Use reason_code OTHER when no
 reason is given. "Semua basah" is a complete defect description.
 
+Dock opening and closing hours are NOT your concern. Runa checks the new time
+against the dock schedule separately, AFTER writing, and asks a supervisor if
+there is a clash. A time outside dock hours is still a firm, complete fact:
+never lower a score or ask a question because of dock hours or scheduling.
+
 Who sent a message is only a HINT about which delivery it concerns. What
 they describe is stronger evidence: a product, a route, a delivery number. If
 the product they mention is not what that person's usual delivery carries,
