@@ -63,7 +63,10 @@ async def refresh_supervisors(update: Update, ctx: ContextTypes.DEFAULT_TYPE,
 
 
 async def on_message(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
-    if not update.message or not update.message.text:
+    # A photo with a caption ("DO 4521 basah semua" + a picture) is read by
+    # its caption. A photo with no words is left alone — Runa only reads text.
+    text = update.message and (update.message.text or update.message.caption)
+    if not text:
         return
 
     user = update.message.from_user
@@ -72,8 +75,7 @@ async def on_message(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     await refresh_supervisors(update, ctx, runa)
 
     # The LLM calls are blocking; keep the event loop responsive.
-    replies = await asyncio.to_thread(runa.handle, sender, update.message.text,
-                                      user.id)
+    replies = await asyncio.to_thread(runa.handle, sender, text, user.id)
     for reply in replies:
         await update.message.reply_text(reply)
 
@@ -116,6 +118,57 @@ async def on_undo(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(reply)
 
 
+# --------------------------------------------------------------- notebook
+async def _notebook_command(update: Update, ctx: ContextTypes.DEFAULT_TYPE,
+                            action: str):
+    """/catat, /setuju, /tolak, /hapus, /catatan. Who may do what is checked
+    in pipeline.py, by Telegram user ID — group admins are the supervisors."""
+    runa = session(update.message.chat_id)
+    await refresh_supervisors(update, ctx, runa, force=action != "list")
+    user = update.effective_user
+    name = user.first_name or user.username or "Unknown"
+    try:
+        if action == "list":
+            replies = await asyncio.to_thread(runa.notebook_text)
+        elif action == "teach":
+            replies = await asyncio.to_thread(runa.teach, name, " ".join(ctx.args), user.id)
+        else:
+            if not ctx.args or not ctx.args[0].lstrip("#").isdigit():
+                await update.message.reply_text(f"Tulis nomornya, contoh: /{action} 4")
+                return
+            note_id = int(ctx.args[0].lstrip("#"))
+            if action == "hapus":
+                replies = await asyncio.to_thread(runa.forget, name, note_id, user.id)
+            else:
+                replies = await asyncio.to_thread(runa.review, name, note_id,
+                                                  action == "setuju", user.id)
+    except Exception as e:
+        logging.warning("Notebook command failed: %s", e)
+        replies = ["Maaf, buku catatan sedang tidak bisa dibuka. Coba lagi sebentar. 🙏"]
+    for reply in replies:
+        await update.message.reply_text(reply)
+
+
+async def on_catat(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    await _notebook_command(update, ctx, "teach")
+
+
+async def on_setuju(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    await _notebook_command(update, ctx, "setuju")
+
+
+async def on_tolak(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    await _notebook_command(update, ctx, "tolak")
+
+
+async def on_hapus(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    await _notebook_command(update, ctx, "hapus")
+
+
+async def on_catatan(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    await _notebook_command(update, ctx, "list")
+
+
 def main():
     if not TELEGRAM_TOKEN:
         raise SystemExit("TELEGRAM_TOKEN missing from .env")
@@ -124,7 +177,13 @@ def main():
     app.add_handler(CommandHandler("status", on_status))
     app.add_handler(CommandHandler("reset", on_reset))
     app.add_handler(CommandHandler("undo", on_undo))
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, on_message))
+    app.add_handler(CommandHandler("catat", on_catat))
+    app.add_handler(CommandHandler("setuju", on_setuju))
+    app.add_handler(CommandHandler("tolak", on_tolak))
+    app.add_handler(CommandHandler("hapus", on_hapus))
+    app.add_handler(CommandHandler("catatan", on_catatan))
+    app.add_handler(MessageHandler((filters.TEXT | filters.CAPTION) & ~filters.COMMAND,
+                                   on_message))
 
     print("Runa listening. Add the bot to your group and start talking.")
     print("Reminder: BotFather → /setprivacy → Disable, or Runa only sees @mentions.")

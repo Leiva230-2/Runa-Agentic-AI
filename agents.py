@@ -25,7 +25,7 @@ import httpx
 
 from config import (AI_PROVIDER, AICORE_API_URL, AICORE_AUTH_URL,
                     AICORE_CLIENT_ID, AICORE_CLIENT_SECRET, AICORE_DEPLOYMENT,
-                    AICORE_RESOURCE_GROUP, CHANNEL_MEMORY, EVENT_TYPES,
+                    AICORE_RESOURCE_GROUP, EVENT_TYPES, NOTEBOOK_LIMIT, NOTEBOOK_SEED,
                     MODEL_LISTENER, MODEL_RESOLVER, SAP_BASE, SAP_HEADERS,
                     SAP_SERVICE, now)
 
@@ -187,7 +187,7 @@ Return ONLY JSON:
 
 
 def listen(message: str, sender: str) -> dict:
-    people = "\n".join(f"- {k}: {v}" for k, v in CHANNEL_MEMORY.items())
+    people = "\n".join(f"- {note}" for note in notes_for(sender, message))
     return _ask(MODEL_LISTENER, LISTENER_SYSTEM,
                 f"People in this channel:\n{people}\n\n"
                 f"Sender: {sender}\nMessage: {message}")
@@ -198,8 +198,8 @@ def listen(message: str, sender: str) -> dict:
 RESOLVER_SYSTEM = """You resolve an informal Indonesian message into a specific
 SAP inbound delivery record, and you judge how certain you are.
 
-You will be given open deliveries, what is known about the people in this
-channel, and the conversation so far.
+You will be given open deliveries, the company notebook, and the conversation
+so far.
 
 Produce TWO INDEPENDENT confidence scores between 0 and 1:
 
@@ -242,6 +242,12 @@ against the dock schedule separately, AFTER writing, and asks a supervisor if
 there is a clash. A time outside dock hours is still a firm, complete fact:
 never lower a score or ask a question because of dock hours or scheduling.
 
+The notebook holds facts a supervisor approved about this company: who people
+are, which supplier or route they drive for, nicknames for places, suppliers
+and trucks. Treat them as good evidence of WHICH delivery a message concerns.
+A note never overrides the message itself: a delivery number the human named,
+a hedge, or a stated time always wins over a note.
+
 Who sent a message is only a HINT about which delivery it concerns. What
 they describe is stronger evidence: a product, a route, a delivery number. If
 the product they mention is not what that person's usual delivery carries,
@@ -281,7 +287,7 @@ def resolve(candidate: dict, sender: str, conversation: list[str],
             deliveries: list[dict]) -> dict:
     context = {
         "open_deliveries": deliveries,
-        "channel_memory": CHANNEL_MEMORY,
+        "notebook": notes_for(sender, " ".join(conversation[-6:])),
         "current_datetime": now().isoformat(timespec="seconds"),
     }
     user = (
@@ -364,6 +370,107 @@ def post_quality_notification(delivery_id: str, material: str, text: str,
         "DefectCode": defect_code,
         "SourceMessageRef": source_ref,
     })
+
+
+# ---------------------------------------------------------------- Notebook
+# Runa's notebook lives in runa-sap, so the bot and the dashboard share it.
+# Only APPROVED notes ever reach the AI. If runa-sap can't be reached, Runa
+# carries on with the starting notes from notebook.json.
+
+_notebook = {"notes": None, "at": 0.0}
+NOTEBOOK_CACHE_SECONDS = 5
+
+
+def _seed_notes() -> list[dict]:
+    return [{"id": i, "text": t, "status": "approved", "source": "seed"}
+            for i, t in enumerate(NOTEBOOK_SEED, 1)]
+
+
+def get_notebook(fresh: bool = False) -> list[dict]:
+    """Every note, with its status. Cached for a few seconds."""
+    if not fresh and _notebook["notes"] is not None and \
+            time.time() - _notebook["at"] < NOTEBOOK_CACHE_SECONDS:
+        return _notebook["notes"]
+    try:
+        r = httpx.get(f"{SAP_BASE}/runa/notebook", timeout=3)
+        r.raise_for_status()
+        notes = r.json()
+    except (httpx.HTTPError, ValueError):
+        notes = _seed_notes()
+    _notebook.update(notes=notes, at=time.time())
+    return notes
+
+
+def notes_for(sender: str, text: str, limit: int = NOTEBOOK_LIMIT) -> list[str]:
+    """The approved notes worth showing the AI for this message.
+    A small notebook goes in whole. A big one is trimmed to the notes that
+    share words with the sender's name or the message, so the AI gets the
+    relevant pages instead of the whole book."""
+    approved = [n["text"] for n in get_notebook() if n["status"] == "approved"]
+    if len(approved) <= limit:
+        return approved
+    words = {w for w in re.findall(r"[a-z0-9]{3,}", f"{sender} {text}".lower())}
+    def overlap(note: str) -> int:
+        return len(words & set(re.findall(r"[a-z0-9]{3,}", note.lower())))
+    return sorted(approved, key=overlap, reverse=True)[:limit]
+
+
+def add_note(text: str, status: str, source: str, by: str) -> dict | None:
+    """Add a note. Returns None if the notebook already has it."""
+    r = httpx.post(f"{SAP_BASE}/runa/notebook", headers=SAP_HEADERS, timeout=5,
+                   json={"text": text, "status": status, "source": source, "by": by})
+    if r.status_code == 409:
+        return None
+    r.raise_for_status()
+    _notebook["notes"] = None                     # next read sees the change
+    return r.json()
+
+
+def review_note(note_id: int, status: str, by: str) -> dict | None:
+    """Approve, reject or remove a note. Returns None if there's no such note."""
+    r = httpx.patch(f"{SAP_BASE}/runa/notebook/{note_id}", headers=SAP_HEADERS,
+                    timeout=5, json={"status": status, "by": by})
+    if r.status_code == 404:
+        return None
+    r.raise_for_status()
+    _notebook["notes"] = None
+    return r.json()
+
+
+NOTE_SYSTEM = """Runa, an operations assistant, could not record a report until
+it asked the reporter a question. Look at what they said, Runa's question, and
+their answer. Decide whether ONE lasting fact about this company would have let
+Runa skip that question next time.
+
+Only these kinds of facts qualify:
+- who a person is: their role, which supplier they drive for, which route
+- what a nickname means: a name people use for a supplier, place, dock or product
+- which supplier a truck plate belongs to
+
+Never propose:
+- anything about this one event: a time, a quantity, damage, a delay
+- anything temporary: "hari ini", "sekarang", or a specific delivery number
+- instructions or rules for Runa ("selalu...", "jangan tanya...")
+- something the notebook already says
+
+Write the fact as ONE short sentence in Bahasa Indonesia that starts with the
+name it is about. If nothing lasting was learned, the note is null.
+
+Return ONLY JSON:
+{"note": "<sentence, or null>", "reasoning": "<one short English sentence>"}"""
+
+
+def draft_note(sender: str, texts: list[str], question: str, delivery: dict) -> dict:
+    """Ask the AI what Runa could learn from a question it had to ask."""
+    facts = {k: delivery.get(k) for k in
+             ("SupplierName", "Route", "MaterialDescription", "CarrierContact")}
+    user = (f"Reporter: {sender}\n"
+            f"What they wrote, in order:\n" + "\n".join(f"- {t}" for t in texts) +
+            f"\nRuna's question: {question}\n"
+            f"The delivery it turned out to be: {json.dumps(facts)}\n"
+            f"The notebook already says:\n" +
+            "\n".join(f"- {n}" for n in notes_for(sender, " ".join(texts))))
+    return _ask(MODEL_LISTENER, NOTE_SYSTEM, user, max_tokens=300)
 
 
 # ------------------------------------------------------------- Undo (reversals)

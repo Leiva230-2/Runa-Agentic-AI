@@ -1,0 +1,8 @@
+{
+  "_about": "Runa's notebook for THIS company: who people are, nicknames for places and suppliers, which trucks belong to whom. Every company gets its own copy of this file. These are the starting notes; Runa proposes new ones from the chat and a supervisor approves them with /setuju. Notes only help Runa tell WHICH delivery a message is about. They never change the rules in the code.",
+  "notes": [
+    "Budi: Carrier driver for PT Sinar Baja Logistik. Usually runs the Cikampek route. Currently assigned to delivery 0080004521.",
+    "Rudi: Carrier driver for CV Mitra Kemasan on the Bekasi route.",
+    "Sari: Warehouse supervisor, Cikarang DC. Owns dock scheduling."
+  ]
+}

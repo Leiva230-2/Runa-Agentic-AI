@@ -19,7 +19,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
-from config import INBOUND_DELIVERIES, RUNA_API_KEY
+from config import INBOUND_DELIVERIES, NOTEBOOK_SEED, RUNA_API_KEY
 
 app = FastAPI(title="Mock S/4HANA — API_INBOUND_DELIVERY_SRV")
 app.add_middleware(
@@ -51,6 +51,7 @@ MATERIAL_DOCUMENTS: list[dict] = []
 QUALITY_NOTIFICATIONS: list[dict] = []
 CHANGE_LOG: list[dict] = []
 RUNA_EVENTS: list[dict] = []
+NOTEBOOK: list[dict] = []      # Runa's notebook (not SAP — Runa's own memory)
 
 
 class DeliveryPatch(BaseModel):
@@ -213,6 +214,71 @@ def list_events():
     """Reads and lists everything that runa did"""
     return RUNA_EVENTS
 
+# ------------------------------------------------------------------ notebook
+# Not part of SAP. Runa's notebook lives here so the bot and the dashboard
+# share one copy. In production: SAP HANA Cloud, so it survives restarts.
+
+NOTE_STATUSES = {"proposed", "approved", "rejected", "removed"}
+
+
+class NoteIn(BaseModel):
+    text: str
+    status: str = "proposed"       # Runa proposes; a supervisor's own note is approved
+    source: str = "learned"        # seed / supervisor / learned
+    by: str = "Runa"
+
+
+class NoteReview(BaseModel):
+    status: str                    # approved / rejected / removed
+    by: str
+
+
+def seed_notebook():
+    NOTEBOOK.clear()
+    for text in NOTEBOOK_SEED:
+        NOTEBOOK.append({"id": len(NOTEBOOK) + 1, "text": text, "status": "approved",
+                         "source": "seed", "by": "setup", "reviewed_by": None,
+                         "created": datetime.now().isoformat(timespec="seconds")})
+
+
+seed_notebook()
+
+
+@app.get("/runa/notebook")
+def list_notes():
+    return NOTEBOOK
+
+
+@app.post("/runa/notebook")
+def add_note(note: NoteIn):
+    text = " ".join(note.text.split())
+    if not text or len(text) > 300:
+        raise HTTPException(422, "A note must be 1–300 characters")
+    if note.status not in ("proposed", "approved"):
+        raise HTTPException(422, "A new note is either proposed or approved")
+    if any(n["text"].lower() == text.lower() and n["status"] in ("proposed", "approved")
+           for n in NOTEBOOK):
+        raise HTTPException(409, "The notebook already has this note")
+    record = {"id": len(NOTEBOOK) + 1, "text": text, "status": note.status,
+              "source": note.source, "by": note.by,
+              "reviewed_by": note.by if note.status == "approved" else None,
+              "created": datetime.now().isoformat(timespec="seconds")}
+    NOTEBOOK.append(record)
+    return record
+
+
+@app.patch("/runa/notebook/{note_id}")
+def review_note(note_id: int, review: NoteReview):
+    note = next((n for n in NOTEBOOK if n["id"] == note_id), None)
+    if not note:
+        raise HTTPException(404, f"Note {note_id} not found")
+    if review.status not in NOTE_STATUSES - {"proposed"}:
+        raise HTTPException(422, "Status must be approved, rejected or removed")
+    note["status"] = review.status
+    note["reviewed_by"] = review.by
+    return note
+
+
 @app.post("/_debug/reset")
 def debug_reset():
     """Not part of the SAP contract — puts the demo data back to the start."""
@@ -222,6 +288,7 @@ def debug_reset():
     QUALITY_NOTIFICATIONS.clear()
     CHANGE_LOG.clear()
     RUNA_EVENTS.clear()
+    seed_notebook()
     return {"reset": True}
 
 

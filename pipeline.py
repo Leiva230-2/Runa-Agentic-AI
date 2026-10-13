@@ -36,6 +36,7 @@ STEP_NAMES = {
     "policy" : "Rules",
     "transactor" : "Transactor",
     "conflict" : "Conflict check", 
+    "notebook" : "Notebook",
 }
 WIB = timezone(timedelta(hours=7))
 
@@ -239,7 +240,12 @@ class Runa:
                 self.trace.log("policy", f"Fact check: {reason}")
                 return self._ask_or_handoff(candidate, sender, question, texts,
                                             asked, last_question, reason, guess)
-            return self._gate_and_write(res, deliveries)
+            written_before = self.written
+            out = self._gate_and_write(res, deliveries)
+            if asked and self.written > written_before:
+                # It took a question to get here. Anything worth remembering?
+                out += self._learn(sender, texts, last_question, res, deliveries)
+            return out
 
         weak = "identity" if ident < CONFIDENCE_THRESHOLD else "content"
         question = res.get("clarifying_question") or \
@@ -544,6 +550,88 @@ class Runa:
             f"opsi {result['choice']} untuk DO {pd.delivery_id}", before=before))
         self.trace.log("agent", confirmation)
         return [confirmation]
+
+    # ============================================================ notebook
+    # Runa may PROPOSE what it learned; only a supervisor can make it a note.
+    # Notes help the AI tell WHICH delivery a message is about. They can't
+    # touch the rulebook: thresholds, limits and checks stay in the code.
+
+    def _learn(self, sender: str, texts: list[str], question: str,
+               res: dict, deliveries: list[dict]) -> list[str]:
+        """After a write that needed a question: propose a note, if there's
+        one lasting fact that would have saved the question."""
+        delivery = {d["InboundDelivery"]: d for d in deliveries}[res["delivery_id"]]
+        try:
+            idea = agents.draft_note(sender, texts, question, delivery)
+            text = " ".join(str(idea.get("note") or "").split())
+            if not text or len(text) > 200 or checks.looks_like_injection(text):
+                return []
+            note = agents.add_note(text, status="proposed", source="learned", by="Runa")
+        except Exception as e:                  # learning is a bonus, never a blocker
+            self.trace.log("notebook", f"No proposal — {type(e).__name__}: {e}")
+            return []
+        if not note:                            # the notebook already has it
+            return []
+        self.trace.log("notebook", f"Proposed note #{note['id']}: {text}")
+        return [f"📒 Usulan catatan #{note['id']}: \"{text}\"\n"
+                f"{self.authority.mention()} balas /setuju {note['id']} untuk "
+                f"menyimpan, atau /tolak {note['id']}."]
+
+    def teach(self, sender: str, text: str, sender_id=None) -> list[str]:
+        """/catat <text> — a supervisor writes a note directly."""
+        if not self.authority.is_supervisor(sender, sender_id):
+            return ["Maaf, hanya supervisor yang bisa menambah catatan."]
+        text = " ".join(text.split())
+        if not text:
+            return ["Tulis catatannya setelah /catat, contoh: "
+                    "/catat Pak Joko itu supir CV Mitra Kemasan"]
+        if checks.looks_like_injection(text):
+            return ["Catatan ini terlihat seperti perintah ke sistem, jadi tidak disimpan."]
+        note = agents.add_note(text, status="approved", source="supervisor", by=sender)
+        if not note:
+            return ["Catatan itu sudah ada di buku catatan Runa."]
+        self.trace.log("notebook", f"{sender} added note #{note['id']}: {text}")
+        return [f"📒 Dicatat (#{note['id']}): \"{text}\""]
+
+    def review(self, sender: str, note_id: int, approve: bool,
+               sender_id=None) -> list[str]:
+        """/setuju N or /tolak N — a supervisor decides on a proposed note."""
+        if not self.authority.is_supervisor(sender, sender_id):
+            return ["Maaf, hanya supervisor yang bisa menyetujui catatan."]
+        current = next((n for n in agents.get_notebook(fresh=True)
+                        if n["id"] == note_id), None)
+        if not current:
+            return [f"Catatan #{note_id} tidak ditemukan."]
+        if current["status"] != "proposed":
+            return [f"Catatan #{note_id} sudah {current['status']}, tidak menunggu keputusan."]
+        status = "approved" if approve else "rejected"
+        agents.review_note(note_id, status, sender)
+        self.trace.log("notebook", f"{sender} {status} note #{note_id}")
+        if approve:
+            return [f"📒 Disimpan (#{note_id}). Mulai sekarang Runa memakai catatan ini."]
+        return [f"Catatan #{note_id} ditolak, tidak dipakai."]
+
+    def forget(self, sender: str, note_id: int, sender_id=None) -> list[str]:
+        """/hapus N — a supervisor takes a note out of use (it stays on record)."""
+        if not self.authority.is_supervisor(sender, sender_id):
+            return ["Maaf, hanya supervisor yang bisa menghapus catatan."]
+        if not agents.review_note(note_id, "removed", sender):
+            return [f"Catatan #{note_id} tidak ditemukan."]
+        self.trace.log("notebook", f"{sender} removed note #{note_id}")
+        return [f"Catatan #{note_id} tidak dipakai lagi."]
+
+    def notebook_text(self) -> list[str]:
+        """/catatan — show what Runa knows, and what is waiting for approval."""
+        notes = agents.get_notebook(fresh=True)
+        used = [n for n in notes if n["status"] == "approved"]
+        waiting = [n for n in notes if n["status"] == "proposed"]
+        lines = ["📒 Buku catatan Runa"]
+        lines += [f"#{n['id']} {n['text']}" for n in used] or ["(kosong)"]
+        if waiting:
+            lines += ["", "Menunggu persetujuan supervisor:"]
+            lines += [f"#{n['id']} {n['text']}  →  /setuju {n['id']} atau /tolak {n['id']}"
+                      for n in waiting]
+        return ["\n".join(lines)]
 
         # ================================================================ undo
     def undo(self, sender: str) -> list[str]:

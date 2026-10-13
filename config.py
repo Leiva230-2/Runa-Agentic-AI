@@ -1,4 +1,5 @@
 """Runa — configuration and seeded SAP master data."""
+import json
 import os
 from dotenv import load_dotenv
 
@@ -103,14 +104,13 @@ INBOUND_DELIVERIES = {
     },
 }
 
-# Per-channel memory: who is who in this operations group. In production this
-# is AgentCore Memory; here it is a seeded dict.
-CHANNEL_MEMORY = {
-    "Budi": "Carrier driver for PT Sinar Baja Logistik. Usually runs the "
-            "Cikampek route. Currently assigned to delivery 0080004521.",
-    "Rudi": "Carrier driver for CV Mitra Kemasan on the Bekasi route.",
-    "Sari": "Warehouse supervisor, Cikarang DC. Owns dock scheduling.",
-}
+# Runa's notebook: what this company knows that SAP doesn't — who is who in
+# the group, nicknames, routes. notebook.json holds the starting notes; the
+# live notebook (with everything learned since) lives in runa-sap.
+NOTEBOOK_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "notebook.json")
+with open(NOTEBOOK_FILE, encoding="utf-8") as _fh:
+    NOTEBOOK_SEED: list[str] = json.load(_fh)["notes"]
+NOTEBOOK_LIMIT = 25        # at most this many notes go to the AI per message
 
 # The "forms" Runa knows how to fill in. Anything work-related outside these
 # is OTHER_OPERATIONAL: Runa understands it, but forwards it to a human.
