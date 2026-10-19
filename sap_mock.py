@@ -36,7 +36,9 @@ async def require_key(request: Request, call_next):
     """The lock. Reading is open, because the dashboard only reads.
     Changing anything (POST, PATCH) needs the secret key, so a stranger who
     finds this address can't write fake data or wipe the demo."""
-    if RUNA_API_KEY and request.method not in ("GET", "HEAD", "OPTIONS"):
+    # /a2a is Joule's read-only door to Runa (see a2a_agent.py): it can't write.
+    if (RUNA_API_KEY and request.method not in ("GET", "HEAD", "OPTIONS")
+            and not request.url.path.startswith("/a2a")):
         given = request.headers.get("X-Runa-Key", "")
         if not secrets.compare_digest(given, RUNA_API_KEY):
             return JSONResponse({"detail": "Missing or wrong X-Runa-Key"},
@@ -301,3 +303,19 @@ def debug_state():
         "quality_notifications": QUALITY_NOTIFICATIONS,
         "change_log": CHANGE_LOG,
     }
+
+
+# --------------------------------------------------------------- SAP Joule
+# Joule asks Runa questions over A2A at /a2a. Read-only: see a2a_agent.py.
+def live_state() -> dict:
+    return {"deliveries": DB, "change_log": CHANGE_LOG,
+            "material_documents": MATERIAL_DOCUMENTS,
+            "quality_notifications": QUALITY_NOTIFICATIONS,
+            "events": RUNA_EVENTS}
+
+
+try:
+    from a2a_agent import build_a2a_app
+    app.mount("/a2a", build_a2a_app(live_state))
+except ImportError as e:              # a2a-sdk not installed: SAP mock still runs
+    print(f"[a2a] Joule endpoint disabled: {e}")

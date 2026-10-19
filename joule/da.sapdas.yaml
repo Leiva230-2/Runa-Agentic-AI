@@ -1,0 +1,7 @@
+schema_version: 1.4.0
+
+name: runa_assistant
+
+capabilities:
+  - type: local
+    folder: ./runa_capability

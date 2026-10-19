@@ -619,6 +619,40 @@ def test_big_notebook_sends_relevant_pages():
           len(picked) == 25 and any("Pak Joko" in n for n in picked))
 
 
+# ------------------------------------------------------------ Joule (A2A) ---
+def ask_runa(question):
+    """What Runa would tell Joule right now (same code the A2A endpoint runs)."""
+    import a2a_agent
+    state = sap()
+    state = {"deliveries": state["deliveries"], "change_log": state["change_log"],
+             "material_documents": state["material_documents"],
+             "quality_notifications": state["quality_notifications"],
+             "events": httpx.get(f"{SAP_BASE}/runa/events", timeout=5).json()}
+    return a2a_agent.answer(question, state)
+
+
+def test_joule_question_about_a_delivery():
+    ai, r = fresh()
+    late_conflict(r, ai)
+    text = ask_runa("Apa yang terjadi dengan DO 4521 hari ini?")
+    check("Joule asking about 'DO 4521' gets its real time and the original plan",
+          "0080004521" in text and "23:00" in text and "rencana awal 09/09 21:00" in text)
+
+
+def test_joule_unknown_delivery():
+    ai, r = fresh()
+    text = ask_runa("bagaimana DO 9999?")
+    check("Joule asking about a delivery that doesn't exist is told so",
+          "tidak ada di SAP" in text)
+
+
+def test_joule_summary_without_number():
+    ai, r = fresh()
+    text = ask_runa("ringkasan gudang hari ini")
+    check("Without a delivery number Joule gets the day's summary",
+          "Ringkasan" in text and "0080004522" in text)
+
+
 # ------------------------------------------------------------------ undo ---
 def test_undo_eta_restores_time_and_cancels_escalation():
     ai, r = fresh()
@@ -670,6 +704,17 @@ def test_undo_decision_brings_conflict_back():
     d = sap()["deliveries"]["0080004521"]
     check("A second /undo goes one step further back, to the original plan",
           d["PlannedGoodsReceipt"] == "2026-09-09T21:00:00" and r.pending_decision is None)
+
+
+def test_undo_shortage_keeps_dock_escalation():
+    ai, r = fresh()
+    late_conflict(r, ai)
+    ai.listens = [event("GOODS_RECEIPT_DISCREPANCY")]
+    ai.resolves = [res(event_type="GOODS_RECEIPT_DISCREPANCY", quantity_short=3)]
+    r.handle("Sari", "DO 4521 kurang 3 karton")
+    r.undo("Sari")
+    check("Undoing a shortage leaves the open dock decision alone",
+          r.pending_decision is not None)
 
 
 def test_undo_with_nothing_to_undo():

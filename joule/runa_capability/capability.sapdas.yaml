@@ -1,0 +1,15 @@
+schema_version: 3.28.0
+
+metadata:
+  namespace: joule.ext
+  name: runa_capability
+  version: 1.0.0
+  display_name: Runa
+  description: >-
+    Ask Runa, the warehouse operations agent, what happened to inbound
+    deliveries. Runa records delays, shortages and damage reported in the
+    operations group chat into SAP.
+
+system_aliases:
+  RUNA_AGENT:
+    destination: RUNA_AGENT_A2A

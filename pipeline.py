@@ -664,8 +664,10 @@ class Runa:
         out = [f"↩️ Dibatalkan oleh {sender}: {last.label}. "
                f"Data SAP sudah dikembalikan; jejaknya tetap tercatat."]
 
-        # An open escalation about this delivery may no longer be true
-        if self.pending_decision and self.pending_decision.delivery_id == last.delivery_id:
+        # Putting a time or schedule back may make the open escalation untrue.
+        # (Undoing a shortage or a complaint doesn't touch the schedule.)
+        if (last.kind == "restore" and self.pending_decision
+                and self.pending_decision.delivery_id == last.delivery_id):
             self.pending_decision = None
             self.trace.log("policy", "Undo — the open escalation for this delivery is cancelled")
 
