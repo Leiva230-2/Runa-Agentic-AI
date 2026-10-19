@@ -10,7 +10,7 @@ This agent only READS. Nothing that arrives here can change SAP; writing
 stays in the Telegram pipeline, behind the confidence scores and the rules.
 
     answer(question, state) -> text      the logic, plain Python, testable
-    build_a2a_app(get_state)  -> app      the A2A wrapper, mounted at /a2a
+    add_a2a_routes(app, get_state)        the A2A wrapper, at /a2a on runa-sap
 """
 import json
 import os
@@ -160,8 +160,15 @@ def _public_url() -> str:
     return f"https://{uris[0]}" if uris else "http://127.0.0.1:8000"
 
 
-def build_a2a_app(get_state):
-    """The A2A server Joule talks to. get_state() returns live SAP + Runa data."""
+def add_a2a_routes(app, get_state):
+    """Add the A2A endpoints Joule talks to onto runa-sap's own app.
+    get_state() returns live SAP + Runa data.
+
+      GET  /a2a/.well-known/agent-card.json   who Runa is, what it can answer
+      POST /a2a  (and /a2a/)                  a question in, Runa's answer out
+
+    Both spellings of the POST address are registered on purpose: a redirect
+    from one to the other would drop the question on the way."""
     from a2a.server.agent_execution import AgentExecutor, RequestContext
     from a2a.server.apps.jsonrpc import A2AFastAPIApplication
     from a2a.server.events import EventQueue
@@ -192,7 +199,7 @@ def build_a2a_app(get_state):
         description=("Operations agent for an Indonesian warehouse. Runa listens to the "
                      "operations group chat and records delays, shortages and damage in "
                      "SAP. Ask it what happened to an inbound delivery, or for a summary."),
-        url=f"{_public_url()}/a2a/",
+        url=f"{_public_url()}/a2a",
         version="1.0.0",
         capabilities=AgentCapabilities(streaming=False),
         skills=[AgentSkill(
@@ -209,4 +216,8 @@ def build_a2a_app(get_state):
     )
     handler = DefaultRequestHandler(agent_executor=RunaExecutor(),
                                     task_store=InMemoryTaskStore())
-    return A2AFastAPIApplication(agent_card=card, http_handler=handler).build()
+    a2a = A2AFastAPIApplication(agent_card=card, http_handler=handler)
+    for rpc_url in ("/a2a", "/a2a/"):
+        a2a.add_routes_to_app(app, agent_card_url="/a2a/.well-known/agent-card.json",
+                              rpc_url=rpc_url,
+                              extended_agent_card_url="/a2a/agent/authenticatedExtendedCard")

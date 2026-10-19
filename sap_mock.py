@@ -315,7 +315,7 @@ def live_state() -> dict:
 
 
 try:
-    from a2a_agent import build_a2a_app
-    app.mount("/a2a", build_a2a_app(live_state))
+    from a2a_agent import add_a2a_routes
+    add_a2a_routes(app, live_state)
 except ImportError as e:              # a2a-sdk not installed: SAP mock still runs
     print(f"[a2a] Joule endpoint disabled: {e}")
