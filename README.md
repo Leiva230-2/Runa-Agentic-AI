@@ -83,6 +83,24 @@ Inspect what landed:
 curl -s localhost:8000/_debug/state | python3 -m json.tool
 ```
 
+## Memory across restarts
+
+Set `DATABASE_URL` (a Postgres connection string) on `runa-sap` and every
+change is saved: SAP records, the change log, dashboard events and the
+notebook. A deploy or a crash no longer wipes them. Without it, runa-sap
+keeps everything in memory, as before. The code is in `store.py`.
+
+What is kept:
+
+- the newest 100 group messages, whatever they were
+- older messages only if they led to something: an SAP write, a question,
+  a handoff, a dock conflict or an undo
+- small talk is forgotten after 24 hours
+- SAP records, the change log and the notebook are never trimmed (audit trail)
+
+`/reset` still puts everything back to the demo data, in the database too.
+`/_debug/state` shows `"storage"`: `database`, or why it isn't saving.
+
 ## Capture your demo evidence
 
 You need three artifacts for the proposal and the pitch:

@@ -724,6 +724,32 @@ def test_undo_with_nothing_to_undo():
           "Belum ada" in out[0] and not sap()["change_log"])
 
 
+# --------------------------------------------------------------- memory ---
+def test_retention_keeps_what_matters():
+    from datetime import datetime, timedelta, timezone
+    from store import keep_events
+    now = datetime.now(timezone.utc)
+    at = lambda h: (now - timedelta(hours=h)).isoformat()
+    old = [{"decision": "written", "at": at(30)}, {"decision": "handoff", "at": at(30)},
+           {"decision": "ignored", "at": at(30)}]
+    chatter = [{"decision": "ignored", "at": at(1)} for _ in range(150)]
+    kept = keep_events(old + chatter, now)
+    check("Retention: an old SAP write and an old handoff are always kept",
+          kept[0]["decision"] == "written" and kept[1]["decision"] == "handoff")
+    check("Retention: small talk past a day or past the newest 100 is forgotten",
+          len(kept) == 2 + 100 and all(e["at"] != at(30) for e in kept[2:]))
+
+
+def test_event_ids_stay_unique_after_trimming():
+    ai, r = fresh()
+    for i in range(3):
+        httpx.post(f"{SAP_BASE}/runa/events", headers=SAP_HEADERS, timeout=5,
+                   json={"ts": "08:00", "sender": "Budi", "text": f"siap {i}",
+                         "decision": "ignored"})
+    ids = [e["id"] for e in httpx.get(f"{SAP_BASE}/runa/events", timeout=5).json()]
+    check("Every dashboard event has its own id", len(ids) == len(set(ids)) == 3)
+
+
 if __name__ == "__main__":
     try:
         httpx.get(f"{SAP_BASE}/_debug/state", timeout=3)

@@ -10,9 +10,10 @@ change to SAP_BASE in .env and nothing else.
 
 Run with:  uvicorn sap_mock:app --port 8000
 """
+import asyncio
 import secrets
 from copy import deepcopy
-from datetime import datetime
+from datetime import datetime, timezone
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -20,6 +21,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
 from config import INBOUND_DELIVERIES, NOTEBOOK_SEED, RUNA_API_KEY
+from store import Store, keep_events
 
 app = FastAPI(title="Mock S/4HANA — API_INBOUND_DELIVERY_SRV")
 app.add_middleware(
@@ -43,7 +45,12 @@ async def require_key(request: Request, call_next):
         if not secrets.compare_digest(given, RUNA_API_KEY):
             return JSONResponse({"detail": "Missing or wrong X-Runa-Key"},
                                 status_code=401)
-    return await call_next(request)
+    response = await call_next(request)
+    # Anything that changed data is saved before Runa hears "done".
+    if (request.method in ("POST", "PATCH") and response.status_code < 400
+            and not request.url.path.startswith("/a2a")):
+        await asyncio.to_thread(STORE.save, snapshot)
+    return response
 
 
 SERVICE = "/sap/opu/odata/sap/API_INBOUND_DELIVERY_SRV"
@@ -206,9 +213,13 @@ def cancel_quality_notification(number: str, req: CancelRequest):
 
 @app.post("/runa/events")
 def add_event(event: RunaEvent):
-    """Runa reports what it just did."""
-    record = {"id": len(RUNA_EVENTS) + 1, **event.model_dump()}
+    """Runa reports what it just did. Old small talk is trimmed here
+    (the rule is keep_events in store.py)."""
+    record = {"id": max((e["id"] for e in RUNA_EVENTS), default=0) + 1,
+              "at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+              **event.model_dump()}
     RUNA_EVENTS.append(record)
+    RUNA_EVENTS[:] = keep_events(RUNA_EVENTS)
     return record
 
 @app.get("/runa/events")
@@ -218,7 +229,7 @@ def list_events():
 
 # ------------------------------------------------------------------ notebook
 # Not part of SAP. Runa's notebook lives here so the bot and the dashboard
-# share one copy. In production: SAP HANA Cloud, so it survives restarts.
+# share one copy. Saved to the database with everything else (store.py).
 
 NOTE_STATUSES = {"proposed", "approved", "rejected", "removed"}
 
@@ -244,6 +255,36 @@ def seed_notebook():
 
 
 seed_notebook()
+
+
+# ------------------------------------------------------------------ storage
+# Load what was saved before the last restart. Without DATABASE_URL this does
+# nothing and the app starts from the demo data, as before.
+STORE = Store()
+COLLECTIONS = {"deliveries": DB, "material_documents": MATERIAL_DOCUMENTS,
+               "quality_notifications": QUALITY_NOTIFICATIONS,
+               "change_log": CHANGE_LOG, "events": RUNA_EVENTS, "notebook": NOTEBOOK}
+
+
+def snapshot() -> dict:
+    """A copy of everything, for saving. Copied with a retry because the
+    request threads may be changing a list at the same moment."""
+    for _ in range(5):
+        try:
+            return deepcopy(COLLECTIONS)
+        except RuntimeError:          # "changed size during iteration"
+            continue
+    return deepcopy(COLLECTIONS)
+
+
+_saved = STORE.load()
+if _saved:
+    for _key, _value in _saved.items():
+        COLLECTIONS[_key].clear()
+        (COLLECTIONS[_key].update if isinstance(_value, dict)
+         else COLLECTIONS[_key].extend)(_value)
+else:
+    STORE.save(snapshot)              # first run: the database gets the demo data
 
 
 @app.get("/runa/notebook")
@@ -298,6 +339,7 @@ def debug_reset():
 def debug_state():
     """Not part of the SAP contract — used by the demo to show what landed."""
     return {
+        "storage": STORE.status,
         "deliveries": DB,
         "material_documents": MATERIAL_DOCUMENTS,
         "quality_notifications": QUALITY_NOTIFICATIONS,
