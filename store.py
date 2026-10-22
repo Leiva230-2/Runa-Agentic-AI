@@ -103,34 +103,59 @@ class PostgresBackend:
 
 # ================================================================ DynamoDB
 class DynamoBackend:
-    """Table with one key: pk (String). For each collection:
-         pk = "facts"      {"parts": 2, "updated": "..."}   which parts to read
-         pk = "facts#0"    {"v": <bytes>}                   the JSON, part 1
-         pk = "facts#1"    {"v": <bytes>}                   the JSON, part 2
+    """For each collection, a few items in the table:
+         "facts"      {"parts": 2, "updated": "..."}   which parts to read
+         "facts#0"    {"v": <bytes>}                   the JSON, part 1
+         "facts#1"    {"v": <bytes>}                   the JSON, part 2
     Parts are written first and the "facts" item last, so a reader never sees
-    a part count for parts that aren't there yet."""
+    a part count for parts that aren't there yet.
+
+    The table's own key names are read from AWS (DescribeTable), so any table
+    works whose partition key is a String: "facts" goes in the partition key,
+    and if the table also has a sort key, every item uses the same sort value."""
     PART_BYTES = 350_000                      # DynamoDB's limit is 400 KB per item
+    SORT_VALUE = {"S": "runa", "N": 0, "B": b"runa"}
 
     def __init__(self, table: str):
         import boto3
-        self.region = os.getenv("AWS_REGION") or os.getenv("AWS_DEFAULT_REGION") or "ap-southeast-3"
+        self.region = os.getenv("AWS_REGION") or os.getenv("AWS_DEFAULT_REGION") or "ap-southeast-2"
         self.table = boto3.resource("dynamodb", region_name=self.region).Table(table)
         self.name = f"DynamoDB {table} ({self.region})"
         self.parts: dict[str, int] = {}       # how many parts each key has now
+        self._schema = None
 
-    def _get(self, keys: list[str]) -> dict[str, dict]:
+    def _learn_schema(self):
+        """Which attributes are the keys, and their types. Asked once."""
+        if self._schema:
+            return
+        desc = self.table.meta.client.describe_table(TableName=self.table.name)["Table"]
+        types = {a["AttributeName"]: a["AttributeType"] for a in desc["AttributeDefinitions"]}
+        keys = {k["KeyType"]: k["AttributeName"] for k in desc["KeySchema"]}
+        hash_key, sort_key = keys["HASH"], keys.get("RANGE")
+        if types[hash_key] != "S":
+            raise ValueError(f"the partition key '{hash_key}' must be a String")
+        self._schema = (hash_key, sort_key, self.SORT_VALUE[types[sort_key]] if sort_key else None)
+        self.name += f" [key {hash_key}" + (f" + {sort_key}]" if sort_key else "]")
+
+    def _key(self, name: str) -> dict:
+        hash_key, sort_key, sort_value = self._schema
+        return {hash_key: name, sort_key: sort_value} if sort_key else {hash_key: name}
+
+    def _get(self, names: list[str]) -> dict[str, dict]:
         """BatchGetItem, 100 keys at a time, retrying what DynamoDB sends back."""
+        hash_key = self._schema[0]
         found = {}
-        for i in range(0, len(keys), 100):
-            request = {self.table.name: {"Keys": [{"pk": k} for k in keys[i:i + 100]]}}
+        for i in range(0, len(names), 100):
+            request = {self.table.name: {"Keys": [self._key(n) for n in names[i:i + 100]]}}
             while request:
                 resp = self.table.meta.client.batch_get_item(RequestItems=request)
                 for item in resp["Responses"].get(self.table.name, []):
-                    found[item["pk"]] = item
+                    found[item[hash_key]] = item
                 request = resp.get("UnprocessedKeys") or None
         return found
 
     def read(self) -> dict[str, str]:
+        self._learn_schema()
         heads = self._get(list(KEYS))
         self.parts = {k: int(heads[k]["parts"]) for k in heads}
         names = [f"{k}#{i}" for k, n in self.parts.items() for i in range(n)]
@@ -143,25 +168,28 @@ class DynamoBackend:
         return rows
 
     def write(self, rows: dict[str, str]) -> None:
+        self._learn_schema()
+        hash_key, sort_key, _ = self._schema
+        pkeys = [hash_key] + ([sort_key] if sort_key else [])
         now = datetime.now(timezone.utc).isoformat(timespec="seconds")
         heads, stale = [], []
-        with self.table.batch_writer(overwrite_by_pkeys=["pk"]) as batch:
+        with self.table.batch_writer(overwrite_by_pkeys=pkeys) as batch:
             for key, value in rows.items():
                 data = value.encode("utf-8")
                 chunks = [data[i:i + self.PART_BYTES]
                           for i in range(0, len(data), self.PART_BYTES)] or [b""]
                 for i, chunk in enumerate(chunks):
-                    batch.put_item(Item={"pk": f"{key}#{i}", "v": chunk})
-                heads.append({"pk": key, "parts": len(chunks), "updated": now})
+                    batch.put_item(Item={**self._key(f"{key}#{i}"), "v": chunk})
+                heads.append({**self._key(key), "parts": len(chunks), "updated": now})
                 stale += [f"{key}#{i}" for i in range(len(chunks), self.parts.get(key, 0))]
                 self.parts[key] = len(chunks)
-        with self.table.batch_writer(overwrite_by_pkeys=["pk"]) as batch:
+        with self.table.batch_writer(overwrite_by_pkeys=pkeys) as batch:
             for head in heads:
                 batch.put_item(Item=head)
         if stale:                                 # a collection got smaller
             with self.table.batch_writer() as batch:
-                for pk in stale:
-                    batch.delete_item(Key={"pk": pk})
+                for name in stale:
+                    batch.delete_item(Key=self._key(name))
 
 
 # =================================================================== Store
