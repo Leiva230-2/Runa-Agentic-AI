@@ -406,7 +406,11 @@ def notes_for(sender: str, text: str, limit: int = NOTEBOOK_LIMIT) -> list[str]:
     A small notebook goes in whole. A big one is trimmed to the notes that
     share words with the sender's name or the message, so the AI gets the
     relevant pages instead of the whole book."""
-    approved = [n["text"] for n in get_notebook() if n["status"] == "approved"]
+    # Rules (rules.py) are for planning, not for reading messages: they stay
+    # out of the Listener and Resolver, so learning rules can't change how
+    # Runa understands a driver's report.
+    approved = [n["text"] for n in get_notebook()
+                if n["status"] == "approved" and n.get("kind", "note") == "note"]
     if len(approved) <= limit:
         return approved
     words = {w for w in re.findall(r"[a-z0-9]{3,}", f"{sender} {text}".lower())}
@@ -415,10 +419,18 @@ def notes_for(sender: str, text: str, limit: int = NOTEBOOK_LIMIT) -> list[str]:
     return sorted(approved, key=overlap, reverse=True)[:limit]
 
 
-def add_note(text: str, status: str, source: str, by: str) -> dict | None:
+def approved_rules() -> list[dict]:
+    """The rules a supervisor approved, for the Planner."""
+    return [n for n in get_notebook()
+            if n["status"] == "approved" and n.get("kind") == "rule"]
+
+
+def add_note(text: str, status: str, source: str, by: str,
+             kind: str = "note", evidence: list[dict] | None = None) -> dict | None:
     """Add a note. Returns None if the notebook already has it."""
     r = httpx.post(f"{SAP_BASE}/runa/notebook", headers=SAP_HEADERS, timeout=5,
-                   json={"text": text, "status": status, "source": source, "by": by})
+                   json={"text": text, "status": status, "source": source, "by": by,
+                         "kind": kind, "evidence": evidence or []})
     if r.status_code == 409:
         return None
     r.raise_for_status()
@@ -533,7 +545,7 @@ label ("opsi b"), or by describing the option in their own words ("reschedule
 aja", "perpanjang shift"). They may also not be answering at all.
 
 Return ONLY JSON:
-{"choice": "a"|"b"|null,
+{"choice": "<the letter of the option they chose>"|null,
  "reasoning": "<one short English sentence>"}
 
 Set choice to null if they did not actually pick one."""
@@ -581,6 +593,16 @@ def apply_decision(delivery: dict, kind: str, choice: str,
                          "SourceMessageRef": source_ref})
     return (f"Siap. DO {did} dijadwalkan bongkar jam {opening}, truk menunggu. "
             f"Tercatat di SAP.")
+
+def log_decision(record: dict) -> None:
+    """Keep the Planner's options and the human's choice in runa-sap.
+    A side job like report_event: failure never blocks Runa."""
+    try:
+        httpx.post(f"{SAP_BASE}/runa/decisions", json=record,
+                   headers=SAP_HEADERS, timeout=3)
+    except httpx.HTTPError as e:
+        print(f"[log_decision] skipped: {e}")
+
 
 def report_event(event: dict) -> None:
     """Tell runa-sap what runa just did, so that it can update the dashboard

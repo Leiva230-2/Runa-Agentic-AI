@@ -1,0 +1,244 @@
+# Runa warm-up history: two weeks of the Cikarang DC operations group
+# (26 Aug - 8 Sep 2026), the fortnight before the demo day (Wed 9 Sep).
+# Synthetic but realistic. Written for Runa to learn constraints from.
+# Format: MM-DD HH:MM | sender | message
+#
+# People: Sari (warehouse supervisor, owns dock scheduling), Budi (driver,
+# PT Sinar Baja Logistik, Cikampek route), Agus (relief driver, PT Sinar Baja,
+# waits at the Cikampek pool), Rudi (driver, CV Mitra Kemasan, Bekasi route),
+# Dewi (inventory admin), Hendra (dock crew lead), Tono (gate security).
+
+08-26 06:12 | Hendra | Pagi semua, tim bongkar shift pagi 5 orang lengkap
+08-26 06:15 | Sari | Pagi pak, makasih
+08-26 07:40 | Rudi | Bu Sari, DO 4488 karton dari Bekasi otw, estimasi jam 9
+08-26 07:41 | Sari | Siap pak Rudi, masuk dock 1 ya
+08-26 08:55 | Rudi | Sudah di gerbang bu
+08-26 08:57 | Tono | Truk Mitra Kemasan B 9123 KX masuk
+08-26 09:20 | Hendra | Hujan deras nih bu, dock 1 kena air semua
+08-26 09:21 | Sari | Waduh. Pindah ke dock 2 aja pak, karton jangan sampai basah. Dock 1 kan gak ada atapnya
+08-26 09:23 | Hendra | Siap, geser ke dock 2
+08-26 10:05 | Hendra | DO 4488 selesai bongkar di dock 2, aman kering semua
+08-26 11:30 | Budi | Bu, DO 4490 mie instan berangkat dari Cikampek jam 12
+08-26 11:31 | Sari | Ok pak Budi hati2
+08-26 12:10 | Dewi | Stok mie instan FG-4471 masih aman, cukup 3 hari
+08-26 14:45 | Budi | Sampai gudang bu, DO 4490
+08-26 15:30 | Hendra | DO 4490 beres 240 CTN
+08-26 16:02 | Rudi | Bu, sore ini ada tambahan kiriman karton DO 4491 dari Bekasi, tapi baru siap muat jam 19
+08-26 16:05 | Sari | Jam 19 berangkat sampai sini jam berapa pak?
+08-26 16:06 | Rudi | Sekitar jam 9 malam bu. Tapi dari kantor saya gak boleh nyetir lewat jam 8 malam
+08-26 16:08 | Sari | Oh iya aturan Mitra Kemasan ya. Ya sudah kirim besok pagi aja pak, jam 7
+08-26 16:09 | Rudi | Siap bu, besok pagi
+08-26 17:30 | Sari | Makasih semua hari ini 🙏
+08-26 17:31 | Hendra | 👍
+
+08-27 05:02 | Budi | Pagi bu, saya sudah jalan dari Cikampek jam 5, DO 4495 mie instan
+08-27 06:10 | Hendra | Tim pagi 5 orang hadir
+08-27 07:15 | Rudi | DO 4491 karton otw dari Bekasi bu
+08-27 07:16 | Sari | Siap pak
+08-27 08:40 | Budi | DO 4495 sudah sampai bu
+08-27 08:45 | Rudi | Sampai gerbang
+08-27 09:30 | Hendra | DO 4495 dan 4491 selesai semua
+08-27 10:20 | Dewi | Bu Sari, stok FG-4471 tinggal 0,8 hari. Toko-toko order banyak minggu ini
+08-27 10:25 | Sari | Waduh. Kalau stok mie di bawah 1 hari, kiriman mie harus diterima hari itu juga ya, walaupun malam
+08-27 10:26 | Dewi | Siap bu, saya catat
+08-27 10:40 | Sari | Pak Budi, bisa balik ke Cikampek ambil 1 rit lagi? DO 4497
+08-27 10:42 | Budi | Bisa bu, saya jalan balik sekarang
+08-27 15:50 | Budi | Bu macet di tol Cikampek, kayaknya sampai gudang jam 10 malam
+08-27 15:55 | Sari | Pak Budi dari jam 5 pagi ya? Itu sudah lebih dari 12 jam kerja. Jangan dipaksa
+08-27 15:56 | Budi | Iya bu, lumayan capek
+08-27 15:58 | Sari | Pak Agus, bisa gantikan pak Budi? Ketemu di rest area KM 19
+08-27 16:05 | Agus | Bisa bu, saya dari pool Cikampek jalan sekarang
+08-27 16:06 | Sari | Supir maksimal 12 jam kerja ya semua, termasuk istirahat. Kalau lewat, ganti supir
+08-27 16:08 | Budi | Siap bu, saya tunggu pak Agus di KM 19
+08-27 17:10 | Agus | Sudah ganti supir, DO 4497 saya yang bawa
+08-27 17:20 | Sari | Pak Hendra, malam ini lembur ya, mie harus masuk karena stok tipis
+08-27 17:25 | Hendra | Lembur bisa 3 orang bu: saya, Dedi, Wawan
+08-27 17:26 | Sari | Ok 3 orang cukup. Lembur maksimal 3 jam ya pak
+08-27 21:40 | Agus | DO 4497 sampai gudang bu
+08-27 22:30 | Hendra | DO 4497 beres 240 CTN, tim pulang
+08-27 22:31 | Sari | Makasih banyak tim 🙏
+
+08-28 06:05 | Hendra | Pagi, tim 5 orang
+08-28 07:30 | Budi | Bu hari ini saya mulai jam 7, DO 4501 mie dari Cikampek
+08-28 07:31 | Sari | Siap pak, istirahat cukup kemarin?
+08-28 07:32 | Budi | Cukup bu, aman
+08-28 09:45 | Budi | DO 4501 sampai
+08-28 10:30 | Hendra | Bu, nanti jumatan jam 11.30 sampai jam 1 yang bongkar cuma tinggal 1 orang
+08-28 10:32 | Sari | Ok, jam segitu jangan jadwalkan bongkar truk besar ya. Truk yang datang suruh tunggu sampai jam 1
+08-28 10:33 | Hendra | Siap bu
+08-28 11:50 | Rudi | Bu DO 4503 karton sudah di gerbang
+08-28 11:52 | Sari | Pak Rudi tunggu sebentar ya, lagi jumatan. Jam 1 baru bongkar
+08-28 11:53 | Rudi | Siap bu, saya ngopi dulu
+08-28 13:40 | Hendra | DO 4503 selesai
+08-28 15:00 | Budi | Bu sore ini ada DO 4505 mie lagi, saya berangkat jam 4
+08-28 17:45 | Budi | Bu jumat sore tol Cikampek macet total, molor 2 jam. Estimasi jam 8 malam
+08-28 17:47 | Sari | Iya tiap jumat sore memang begitu. Masih sebelum dock tutup, aman
+08-28 20:10 | Budi | DO 4505 sampai
+08-28 21:00 | Hendra | DO 4505 beres
+08-28 21:02 | Budi | Makasih bu, pulang dulu
+08-28 21:03 | Sari | Hati2 pak
+
+08-29 07:00 | Hendra | Sabtu tim 3 orang aja bu
+08-29 07:05 | Sari | Ok pak, sabtu memang setengah hari
+08-29 08:30 | Rudi | DO 4507 karton otw
+08-29 09:40 | Rudi | Sampai
+08-29 10:20 | Hendra | DO 4507 beres
+08-29 11:00 | Dewi | Stok mie 2,5 hari bu, aman sampai senin
+08-29 12:00 | Sari | Ok, selamat weekend semua
+08-29 12:01 | Budi | Siap bu
+
+08-30 09:15 | Tono | Info: hari ini car free day di Jababeka sampai jam 11, jalan masuk kawasan ditutup
+08-30 09:16 | Sari | Ok makasih pak Tono, hari minggu gak ada kiriman kok
+08-30 19:00 | Budi | Bu besok saya mulai jam 5 pagi ya, ada 2 rit
+
+08-31 05:05 | Budi | Jalan dari Cikampek, DO 4511 mie
+08-31 06:00 | Hendra | Pagi, tim 5 orang. Tapi forklift 2 mogok bu, aki soak
+08-31 06:02 | Sari | Waduh, jadi forklift cuma 1?
+08-31 06:03 | Hendra | Iya bu, bongkar jadi 2 kali lebih lama. 240 karton biasanya 1 jam jadi 2 jam
+08-31 06:05 | Sari | Ok, jadwal bongkar dikasih jarak 2 jam per truk ya
+08-31 07:10 | Rudi | DO 4512 karton otw bu
+08-31 08:20 | Budi | DO 4511 sampai
+08-31 08:25 | Rudi | Saya juga sudah di gerbang bu
+08-31 08:26 | Sari | Pak Rudi antri dulu ya, forklift cuma 1. Bongkar habis DO 4511
+08-31 10:30 | Hendra | DO 4511 beres
+08-31 12:15 | Hendra | DO 4512 beres
+08-31 13:00 | Hendra | Forklift 2 sudah jalan lagi bu, aki diganti
+08-31 13:01 | Sari | Mantap
+08-31 13:30 | Budi | Rit kedua DO 4514 berangkat jam 2
+08-31 18:40 | Budi | Bu ban truk saya bocor di KM 30, ganti ban dulu
+08-31 18:42 | Sari | Ok pak hati2, kabari estimasinya
+08-31 19:30 | Budi | Sudah jalan lagi, estimasi jam 10.30 malam
+08-31 19:32 | Sari | Dock tutup jam 10 malam. Truk parkir di area tunggu aja ya pak, bongkar besok jam 6
+08-31 19:33 | Budi | Siap bu
+08-31 22:40 | Tono | Truk Sinar Baja B 9771 UA parkir di area tunggu
+08-31 22:41 | Budi | Saya tidur di truk bu
+08-31 22:42 | Sari | Ok pak istirahat
+
+09-01 06:05 | Hendra | Pagi, tim 5 orang, DO 4514 langsung bongkar
+09-01 07:00 | Hendra | DO 4514 beres
+09-01 07:05 | Budi | Bu saya istirahat dulu sampai siang, nanti sore 1 rit lagi
+09-01 07:06 | Sari | Iya pak, istirahat dulu
+09-01 08:00 | Rudi | DO 4516 karton otw
+09-01 09:10 | Rudi | Sampai
+09-01 10:00 | Hendra | DO 4516 beres
+09-01 11:15 | Dewi | Bu stok mie FG-4471 tinggal 0,7 hari lagi
+09-01 11:17 | Sari | Ok, berarti kiriman mie sore ini harus masuk malam ini juga
+09-01 13:00 | Budi | Bu, DO 4518 berangkat jam 1 siang
+09-01 17:20 | Budi | Bu macet, estimasi sampai jam 11 malam
+09-01 17:22 | Sari | Pak Hendra, malam ini bisa lembur sampai jam 12? Mie stoknya tipis
+09-01 17:30 | Hendra | Bu yang bisa cuma 2 orang, yang lain ada acara keluarga
+09-01 17:32 | Sari | 2 orang gak cukup buat bongkar truk penuh malam-malam, minimal 3. Ya sudah truk masuk area tunggu, bongkar jam 6 pagi paling awal
+09-01 17:33 | Dewi | Bu, kalau besok jam 6 stok masih sempat, toko baru ambil jam 8
+09-01 17:35 | Sari | Ok aman. Pak Budi, nanti parkir area tunggu ya
+09-01 17:36 | Budi | Siap bu
+09-01 23:05 | Tono | Truk Sinar Baja masuk area tunggu
+09-02 06:00 | Hendra | Tim 5 orang, DO 4518 duluan bongkar
+
+09-02 07:05 | Hendra | DO 4518 beres
+09-02 07:10 | Dewi | Stok mie aman lagi bu, 2 hari
+09-02 07:40 | Rudi | DO 4520 karton berangkat dari Bekasi bu
+09-02 08:30 | Hendra | Bu hujan lagi, dock 1 basah semua
+09-02 08:31 | Sari | Karton pak Rudi masuk dock 2 ya, kayak kemarin itu
+09-02 08:32 | Hendra | Siap, dock 2 dikosongkan
+09-02 08:55 | Rudi | Sampai, masuk dock 2?
+09-02 08:56 | Hendra | Iya pak dock 2
+09-02 09:50 | Hendra | DO 4520 beres, kering
+09-02 12:30 | Budi | Bu DO 4523 mie berangkat jam setengah 1
+09-02 14:10 | Budi | Hujan lebat bu di tol Cikampek, macet. Estimasi molor 2 jam, jam 5 sore
+09-02 14:12 | Sari | Ok pak pelan2 aja, jalanan licin
+09-02 17:15 | Budi | DO 4523 sampai bu
+09-02 18:00 | Hendra | DO 4523 beres
+09-02 18:05 | Sari | Makasih pak
+09-02 19:20 | Hendra | Bu besok saya izin setengah hari, Dedi yang pegang tim pagi
+09-02 19:22 | Sari | Ok pak
+
+09-03 06:10 | Hendra | Pagi, tim 4 orang dipegang Dedi. Forklift 1 rem blong bu, gak boleh dipakai
+09-03 06:12 | Sari | Jadi forklift tinggal 1 lagi ya. Jadwal bongkar per 2 jam lagi kayak senin
+09-03 06:13 | Hendra | Iya bu
+09-03 07:30 | Budi | Bu DO 4525 mie jalan dari Cikampek
+09-03 08:15 | Rudi | DO 4526 karton otw
+09-03 09:40 | Budi | Sampai
+09-03 09:45 | Rudi | Sampai juga bu
+09-03 09:46 | Sari | Pak Rudi tunggu ya, forklift cuma 1, mie duluan
+09-03 11:40 | Hendra | DO 4525 beres
+09-03 13:30 | Hendra | DO 4526 beres
+09-03 14:00 | Hendra | Forklift 1 sudah diperbaiki bu
+09-03 15:30 | Rudi | Bu, ada DO 4527 karton urgent, baru siap jam 6 sore di Bekasi
+09-03 15:32 | Sari | Jam 6 berangkat sampai jam 8 malam ya. Pak Rudi kan gak boleh nyetir malam
+09-03 15:33 | Rudi | Iya bu, lewat jam 8 malam saya gak boleh
+09-03 15:35 | Sari | Ya sudah kirim besok pagi jam 7 aja
+09-03 15:36 | Rudi | Siap
+
+09-04 06:05 | Hendra | Pagi, tim 5 orang lengkap, kedua forklift jalan
+09-04 07:10 | Rudi | DO 4527 karton otw
+09-04 08:20 | Rudi | Sampai
+09-04 09:15 | Hendra | DO 4527 beres
+09-04 10:00 | Budi | Bu DO 4529 mie berangkat jam 10
+09-04 10:45 | Hendra | Bu ingat ya jumatan, jam 11.30 sampai 1 tim tinggal 1 orang
+09-04 10:47 | Sari | Iya pak. Pak Budi kalau sampai sebelum jam 1 tunggu dulu ya
+09-04 12:20 | Budi | Sampai bu, saya tunggu jam 1
+09-04 13:50 | Hendra | DO 4529 beres
+09-04 15:00 | Budi | Bu sore ini DO 4531 mie, berangkat jam setengah 4
+09-04 17:30 | Budi | Jumat sore macet lagi bu, tol Cikampek. Estimasi jam 8 malam
+09-04 17:31 | Sari | Sudah biasa jumat sore pak, aman sebelum jam 10
+09-04 20:15 | Budi | DO 4531 sampai
+09-04 21:05 | Hendra | DO 4531 beres, tim pulang
+
+09-05 07:00 | Hendra | Sabtu tim 3 orang
+09-05 08:10 | Rudi | DO 4533 karton otw
+09-05 09:20 | Rudi | Sampai
+09-05 10:10 | Hendra | DO 4533 beres
+09-05 10:30 | Dewi | Bu ada order darurat dari distributor, mie harus keluar sore ini
+09-05 10:35 | Sari | Pak Budi bisa ambil DO 4535 hari ini?
+09-05 10:40 | Budi | Bisa bu, berangkat jam 11
+09-05 14:30 | Budi | Sampai bu
+09-05 14:32 | Hendra | Bu tim sabtu sudah pulang, tinggal saya sama Wawan
+09-05 14:35 | Sari | Ya sudah sekali ini aja bongkar berdua, darurat. Jangan jadi kebiasaan ya
+09-05 16:00 | Hendra | DO 4535 beres berdua, capek bu 😅
+09-05 16:01 | Sari | Makasih banyak pak, senin saya traktir
+
+09-06 18:30 | Sari | Info besok: mulai senin jam bongkar tetap 06.00-22.00
+09-06 20:00 | Budi | Bu besok saya mulai jam 5 lagi, 2 rit mie
+
+09-07 05:00 | Budi | Jalan dari Cikampek bu, DO 4537
+09-07 06:05 | Hendra | Pagi, tim 5 orang
+09-07 07:30 | Rudi | DO 4538 karton otw
+09-07 08:10 | Budi | DO 4537 sampai
+09-07 08:40 | Rudi | Sampai
+09-07 09:10 | Hendra | DO 4537 beres
+09-07 10:00 | Hendra | DO 4538 beres
+09-07 10:30 | Dewi | Bu stok mie turun lagi, tinggal 0,9 hari
+09-07 10:32 | Sari | Ok, rit kedua pak Budi harus masuk malam ini ya
+09-07 11:00 | Budi | Rit kedua DO 4540 berangkat jam 11 bu
+09-07 15:40 | Budi | Bu ada kecelakaan di tol, macet parah. Estimasi jam 9 malam
+09-07 15:45 | Sari | Pak Budi dari jam 5 pagi, jam 9 malam itu sudah 16 jam. Gak boleh. Pak Agus bisa gantikan?
+09-07 15:50 | Agus | Bisa bu, saya jalan dari pool, ketemu pak Budi di KM 39
+09-07 15:51 | Sari | Ok. Pak Budi istirahat ya, biar pak Agus yang bawa
+09-07 15:52 | Budi | Siap bu, makasih
+09-07 16:00 | Sari | Pak Hendra, malam ini lembur bongkar mie, stok tipis. Ada 3 orang?
+09-07 16:10 | Hendra | Ada bu, 3 orang
+09-07 16:11 | Sari | Ok, maksimal 3 jam ya
+09-07 17:05 | Agus | Sudah ganti supir di KM 39, DO 4540 saya bawa
+09-07 21:10 | Agus | DO 4540 sampai bu
+09-07 22:05 | Hendra | DO 4540 beres, tim pulang
+09-07 22:06 | Sari | Makasih pak Agus, pak Hendra 🙏
+
+09-08 06:00 | Hendra | Pagi, tim 5 orang
+09-08 07:20 | Rudi | DO 4542 karton berangkat bu
+09-08 08:00 | Hendra | Hujan deras bu
+09-08 08:01 | Sari | Karton masuk dock 2 ya pak, dock 1 gak ada atap
+09-08 08:02 | Hendra | Siap
+09-08 08:35 | Rudi | Sampai, ke dock 2 kan?
+09-08 08:36 | Hendra | Betul pak
+09-08 09:30 | Hendra | DO 4542 beres
+09-08 10:00 | Budi | Bu hari ini saya libur ya, pak Agus yang jalan
+09-08 10:01 | Sari | Ok pak Budi, istirahat
+09-08 10:30 | Agus | DO 4544 mie berangkat jam 11
+09-08 11:00 | Hendra | Bu forklift 2 bunyi aneh lagi, takut mogok
+09-08 11:02 | Sari | Pak Hendra cek dulu, kalau mogok kabari, jadwal saya atur ulang
+09-08 13:40 | Agus | DO 4544 sampai
+09-08 14:30 | Hendra | DO 4544 beres, forklift 2 masih jalan
+09-08 15:45 | Rudi | Bu besok pagi DO 4522 karton, jadwal jam 8
+09-08 15:46 | Sari | Siap pak Rudi
+09-08 16:30 | Dewi | Stok mie 1,5 hari bu
+09-08 17:00 | Sari | Ok makasih semua, besok jadwal padat ya

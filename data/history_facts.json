@@ -1,0 +1,1572 @@
+{
+ "source": "history_chat.txt",
+ "messages": 221,
+ "facts": [
+  {
+   "type": "manpower",
+   "subject": "tim bongkar shift pagi",
+   "value": 5,
+   "statement": "Morning shift unloading crew is 5 people, all present.",
+   "starts": "2026-08-26T06:12",
+   "ends": "2026-08-26T18:12",
+   "confidence": 1.0,
+   "source": {
+    "ref": "h001",
+    "at": "2026-08-26T06:12",
+    "sender": "Hendra",
+    "text": "Pagi semua, tim bongkar shift pagi 5 orang lengkap"
+   },
+   "id": 1,
+   "ended_at": null,
+   "ended_by": null
+  },
+  {
+   "type": "weather",
+   "subject": "Cikarang DC area",
+   "value": "heavy rain",
+   "statement": "Heavy rain is falling, causing water to flood dock 1.",
+   "starts": "2026-08-26T09:20",
+   "ends": "2026-08-26T12:20",
+   "confidence": 1.0,
+   "source": {
+    "ref": "h007",
+    "at": "2026-08-26T09:20",
+    "sender": "Hendra",
+    "text": "Hujan deras nih bu, dock 1 kena air semua"
+   },
+   "id": 2,
+   "ended_at": null,
+   "ended_by": null
+  },
+  {
+   "type": "dock",
+   "subject": "dock 1",
+   "value": "wet",
+   "statement": "Dock 1 is flooded with water due to heavy rain (no roof).",
+   "starts": "2026-08-26T09:20",
+   "ends": "2026-08-26T21:20",
+   "confidence": 1.0,
+   "source": {
+    "ref": "h007",
+    "at": "2026-08-26T09:20",
+    "sender": "Hendra",
+    "text": "Hujan deras nih bu, dock 1 kena air semua"
+   },
+   "id": 3,
+   "ended_at": null,
+   "ended_by": null
+  },
+  {
+   "type": "stock",
+   "subject": "FG-4471",
+   "value": 3.0,
+   "statement": "Stock of instant noodles FG-4471 is sufficient for 3 days.",
+   "starts": "2026-08-26T12:10",
+   "ends": "2026-08-27T12:10",
+   "confidence": 1.0,
+   "source": {
+    "ref": "h013",
+    "at": "2026-08-26T12:10",
+    "sender": "Dewi",
+    "text": "Stok mie instan FG-4471 masih aman, cukup 3 hari"
+   },
+   "id": 4,
+   "ended_at": "2026-08-27T10:20",
+   "ended_by": "h030"
+  },
+  {
+   "type": "stated_rule",
+   "subject": "Rudi",
+   "value": null,
+   "statement": "CV Mitra Kemasan policy: Rudi is not allowed to drive after 20:00.",
+   "starts": null,
+   "ends": null,
+   "confidence": 0.95,
+   "source": {
+    "ref": "h018",
+    "at": "2026-08-26T16:06",
+    "sender": "Rudi",
+    "text": "Sekitar jam 9 malam bu. Tapi dari kantor saya gak boleh nyetir lewat jam 8 malam"
+   },
+   "id": 5,
+   "ended_at": null,
+   "ended_by": null
+  },
+  {
+   "type": "driver_availability",
+   "subject": "Rudi",
+   "value": "not allowed to drive after 20:00",
+   "statement": "Rudi cannot drive after 20:00 per company rule; DO 4491 tonight is not feasible.",
+   "starts": null,
+   "ends": "2026-08-26T20:00",
+   "confidence": 0.95,
+   "source": {
+    "ref": "h018",
+    "at": "2026-08-26T16:06",
+    "sender": "Rudi",
+    "text": "Sekitar jam 9 malam bu. Tapi dari kantor saya gak boleh nyetir lewat jam 8 malam"
+   },
+   "id": 6,
+   "ended_at": "2026-09-03T15:33",
+   "ended_by": "h150"
+  },
+  {
+   "type": "driver_duty",
+   "subject": "Budi",
+   "value": null,
+   "statement": "Budi started work/driving today at 05:00 from Cikampek.",
+   "starts": "2026-08-27T05:00",
+   "ends": "2026-08-28T05:02",
+   "confidence": 0.98,
+   "source": {
+    "ref": "h023",
+    "at": "2026-08-27T05:02",
+    "sender": "Budi",
+    "text": "Pagi bu, saya sudah jalan dari Cikampek jam 5, DO 4495 mie instan"
+   },
+   "id": 7,
+   "ended_at": "2026-08-28T07:30",
+   "ended_by": "h050"
+  },
+  {
+   "type": "manpower",
+   "subject": "tim bongkar pagi",
+   "value": 5,
+   "statement": "Morning dock crew has 5 people present.",
+   "starts": "2026-08-27T06:10",
+   "ends": "2026-08-27T18:10",
+   "confidence": 0.99,
+   "source": {
+    "ref": "h024",
+    "at": "2026-08-27T06:10",
+    "sender": "Hendra",
+    "text": "Tim pagi 5 orang hadir"
+   },
+   "id": 8,
+   "ended_at": null,
+   "ended_by": null
+  },
+  {
+   "type": "stock",
+   "subject": "FG-4471",
+   "value": 0.8,
+   "statement": "Stock of instant noodles FG-4471 is sufficient for only 0.8 days.",
+   "starts": "2026-08-27T10:20",
+   "ends": "2026-08-28T10:20",
+   "confidence": 0.99,
+   "source": {
+    "ref": "h030",
+    "at": "2026-08-27T10:20",
+    "sender": "Dewi",
+    "text": "Bu Sari, stok FG-4471 tinggal 0,8 hari. Toko-toko order banyak minggu ini"
+   },
+   "id": 9,
+   "ended_at": "2026-08-29T11:00",
+   "ended_by": "h073"
+  },
+  {
+   "type": "stated_rule",
+   "subject": "FG-4471 mie instan",
+   "value": null,
+   "statement": "When instant noodle stock is below 1 day, the shipment must be received the same day, even at night.",
+   "starts": null,
+   "ends": null,
+   "confidence": 0.97,
+   "source": {
+    "ref": "h031",
+    "at": "2026-08-27T10:25",
+    "sender": "Sari",
+    "text": "Waduh. Kalau stok mie di bawah 1 hari, kiriman mie harus diterima hari itu juga ya, walaupun malam"
+   },
+   "id": 10,
+   "ended_at": null,
+   "ended_by": null
+  },
+  {
+   "type": "route",
+   "subject": "tol Cikampek",
+   "value": "delay to ~22:00",
+   "statement": "Heavy traffic jam on the Cikampek toll road; Budi estimates arrival at warehouse around 22:00.",
+   "starts": "2026-08-27T15:50",
+   "ends": "2026-08-27T18:50",
+   "confidence": 0.8,
+   "source": {
+    "ref": "h035",
+    "at": "2026-08-27T15:50",
+    "sender": "Budi",
+    "text": "Bu macet di tol Cikampek, kayaknya sampai gudang jam 10 malam"
+   },
+   "id": 11,
+   "ended_at": null,
+   "ended_by": null
+  },
+  {
+   "type": "driver_availability",
+   "subject": "Budi",
+   "value": "fatigued / should not drive",
+   "statement": "Budi has been working since 05:00 (over 12 hours) and is too fatigued to continue; should not be forced to drive.",
+   "starts": "2026-08-27T15:56",
+   "ends": "2026-08-28T03:56",
+   "confidence": 0.97,
+   "source": {
+    "ref": "h036",
+    "at": "2026-08-27T15:55",
+    "sender": "Sari",
+    "text": "Pak Budi dari jam 5 pagi ya? Itu sudah lebih dari 12 jam kerja. Jangan dipaksa"
+   },
+   "id": 12,
+   "ended_at": "2026-08-27T17:10",
+   "ended_by": "h042"
+  },
+  {
+   "type": "driver_availability",
+   "subject": "Agus",
+   "value": "free to take over",
+   "statement": "Agus is available and departing from Cikampek pool now to take over from Budi at rest area KM 19.",
+   "starts": "2026-08-27T16:05",
+   "ends": "2026-08-28T04:05",
+   "confidence": 0.99,
+   "source": {
+    "ref": "h039",
+    "at": "2026-08-27T16:05",
+    "sender": "Agus",
+    "text": "Bisa bu, saya dari pool Cikampek jalan sekarang"
+   },
+   "id": 13,
+   "ended_at": "2026-09-07T15:50",
+   "ended_by": "h193"
+  },
+  {
+   "type": "stated_rule",
+   "subject": "semua supir",
+   "value": "max 12 hours including rest",
+   "statement": "Drivers have a maximum working day of 12 hours, including rest; if exceeded, the driver must be replaced.",
+   "starts": null,
+   "ends": null,
+   "confidence": 0.99,
+   "source": {
+    "ref": "h040",
+    "at": "2026-08-27T16:06",
+    "sender": "Sari",
+    "text": "Supir maksimal 12 jam kerja ya semua, termasuk istirahat. Kalau lewat, ganti supir"
+   },
+   "id": 14,
+   "ended_at": null,
+   "ended_by": null
+  },
+  {
+   "type": "driver_duty",
+   "subject": "Agus",
+   "value": null,
+   "statement": "Agus took over DO 4497 from Budi at approximately 17:10 and is now the driver.",
+   "starts": "2026-08-27T17:10",
+   "ends": "2026-08-28T17:10",
+   "confidence": 0.97,
+   "source": {
+    "ref": "h042",
+    "at": "2026-08-27T17:10",
+    "sender": "Agus",
+    "text": "Sudah ganti supir, DO 4497 saya yang bawa"
+   },
+   "id": 15,
+   "ended_at": null,
+   "ended_by": null
+  },
+  {
+   "type": "driver_availability",
+   "subject": "Budi",
+   "value": "resting",
+   "statement": "Budi has been relieved of DO 4497; no longer driving today.",
+   "starts": "2026-08-27T17:10",
+   "ends": "2026-08-28T05:10",
+   "confidence": 0.97,
+   "source": {
+    "ref": "h042",
+    "at": "2026-08-27T17:10",
+    "sender": "Agus",
+    "text": "Sudah ganti supir, DO 4497 saya yang bawa"
+   },
+   "id": 16,
+   "ended_at": "2026-08-31T19:30",
+   "ended_by": "h095"
+  },
+  {
+   "type": "manpower",
+   "subject": "tim lembur malam",
+   "value": 3,
+   "statement": "3 people (Hendra, Dedi, Wawan) available for overtime tonight to receive DO 4497.",
+   "starts": "2026-08-27T17:25",
+   "ends": "2026-08-28T05:25",
+   "confidence": 0.99,
+   "source": {
+    "ref": "h044",
+    "at": "2026-08-27T17:25",
+    "sender": "Hendra",
+    "text": "Lembur bisa 3 orang bu: saya, Dedi, Wawan"
+   },
+   "id": 17,
+   "ended_at": null,
+   "ended_by": null
+  },
+  {
+   "type": "stated_rule",
+   "subject": "tim lembur",
+   "value": "max 3 hours",
+   "statement": "Overtime is limited to a maximum of 3 hours.",
+   "starts": null,
+   "ends": null,
+   "confidence": 0.97,
+   "source": {
+    "ref": "h045",
+    "at": "2026-08-27T17:26",
+    "sender": "Sari",
+    "text": "Ok 3 orang cukup. Lembur maksimal 3 jam ya pak"
+   },
+   "id": 18,
+   "ended_at": null,
+   "ended_by": null
+  },
+  {
+   "type": "manpower",
+   "subject": "tim bongkar",
+   "value": 5,
+   "statement": "Dock unloading crew is 5 people this morning.",
+   "starts": "2026-08-28T06:05",
+   "ends": "2026-08-28T18:05",
+   "confidence": 0.95,
+   "source": {
+    "ref": "h049",
+    "at": "2026-08-28T06:05",
+    "sender": "Hendra",
+    "text": "Pagi, tim 5 orang"
+   },
+   "id": 19,
+   "ended_at": null,
+   "ended_by": null
+  },
+  {
+   "type": "driver_duty",
+   "subject": "Budi",
+   "value": null,
+   "statement": "Budi started work today at 07:00 for DO 4501 (noodles) from Cikampek.",
+   "starts": "2026-08-28T07:00",
+   "ends": "2026-08-29T07:30",
+   "confidence": 0.97,
+   "source": {
+    "ref": "h050",
+    "at": "2026-08-28T07:30",
+    "sender": "Budi",
+    "text": "Bu hari ini saya mulai jam 7, DO 4501 mie dari Cikampek"
+   },
+   "id": 20,
+   "ended_at": "2026-08-31T05:05",
+   "ended_by": "h079"
+  },
+  {
+   "type": "manpower",
+   "subject": "tim bongkar",
+   "value": 1,
+   "statement": "Only 1 unloading crew member available during Friday prayers, from 11:30 to 13:00.",
+   "starts": "2026-08-28T11:30",
+   "ends": "2026-08-28T13:00",
+   "confidence": 0.95,
+   "source": {
+    "ref": "h054",
+    "at": "2026-08-28T10:30",
+    "sender": "Hendra",
+    "text": "Bu, nanti jumatan jam 11.30 sampai jam 1 yang bongkar cuma tinggal 1 orang"
+   },
+   "id": 21,
+   "ended_at": null,
+   "ended_by": null
+  },
+  {
+   "type": "route",
+   "subject": "tol Cikampek",
+   "value": "+2h",
+   "statement": "Tol Cikampek is severely congested this Friday afternoon, causing a 2-hour delay.",
+   "starts": "2026-08-28T17:45",
+   "ends": "2026-08-28T20:45",
+   "confidence": 0.95,
+   "source": {
+    "ref": "h062",
+    "at": "2026-08-28T17:45",
+    "sender": "Budi",
+    "text": "Bu jumat sore tol Cikampek macet total, molor 2 jam. Estimasi jam 8 malam"
+   },
+   "id": 22,
+   "ended_at": null,
+   "ended_by": null
+  },
+  {
+   "type": "stated_rule",
+   "subject": "tol Cikampek",
+   "value": null,
+   "statement": "Every Friday afternoon, tol Cikampek is always heavily congested.",
+   "starts": null,
+   "ends": null,
+   "confidence": 0.92,
+   "source": {
+    "ref": "h063",
+    "at": "2026-08-28T17:47",
+    "sender": "Sari",
+    "text": "Iya tiap jumat sore memang begitu. Masih sebelum dock tutup, aman"
+   },
+   "id": 23,
+   "ended_at": null,
+   "ended_by": null
+  },
+  {
+   "type": "manpower",
+   "subject": "tim bongkar",
+   "value": 3,
+   "statement": "Saturday dock crew is only 3 people.",
+   "starts": "2026-08-29T00:00",
+   "ends": "2026-08-29T19:00",
+   "confidence": 0.95,
+   "source": {
+    "ref": "h068",
+    "at": "2026-08-29T07:00",
+    "sender": "Hendra",
+    "text": "Sabtu tim 3 orang aja bu"
+   },
+   "id": 24,
+   "ended_at": null,
+   "ended_by": null
+  },
+  {
+   "type": "stated_rule",
+   "subject": "warehouse Cikarang DC",
+   "value": "half-day Saturday",
+   "statement": "Saturday is always a half-day shift at this warehouse.",
+   "starts": null,
+   "ends": null,
+   "confidence": 0.9,
+   "source": {
+    "ref": "h069",
+    "at": "2026-08-29T07:05",
+    "sender": "Sari",
+    "text": "Ok pak, sabtu memang setengah hari"
+   },
+   "id": 25,
+   "ended_at": null,
+   "ended_by": null
+  },
+  {
+   "type": "stock",
+   "subject": "mie",
+   "value": 2.5,
+   "statement": "Noodle stock will last 2.5 days (safe through Monday).",
+   "starts": "2026-08-29T11:00",
+   "ends": "2026-08-30T11:00",
+   "confidence": 0.95,
+   "source": {
+    "ref": "h073",
+    "at": "2026-08-29T11:00",
+    "sender": "Dewi",
+    "text": "Stok mie 2,5 hari bu, aman sampai senin"
+   },
+   "id": 26,
+   "ended_at": "2026-09-01T11:15",
+   "ended_by": "h108"
+  },
+  {
+   "type": "route",
+   "subject": "jalan masuk Jababeka",
+   "value": "closed until 11:00",
+   "statement": "Road into Jababeka industrial estate is closed for car-free day until 11:00 on 2026-08-30.",
+   "starts": "2026-08-30T00:00",
+   "ends": "2026-08-30T11:00",
+   "confidence": 0.95,
+   "source": {
+    "ref": "h076",
+    "at": "2026-08-30T09:15",
+    "sender": "Tono",
+    "text": "Info: hari ini car free day di Jababeka sampai jam 11, jalan masuk kawasan ditutup"
+   },
+   "id": 27,
+   "ended_at": null,
+   "ended_by": null
+  },
+  {
+   "type": "driver_duty",
+   "subject": "Budi",
+   "value": null,
+   "statement": "Budi started driving from Cikampek at 05:05 for DO 4511.",
+   "starts": "2026-08-31T05:05",
+   "ends": "2026-09-01T05:05",
+   "confidence": 0.95,
+   "source": {
+    "ref": "h079",
+    "at": "2026-08-31T05:05",
+    "sender": "Budi",
+    "text": "Jalan dari Cikampek, DO 4511 mie"
+   },
+   "id": 28,
+   "ended_at": "2026-09-01T13:00",
+   "ended_by": "h110"
+  },
+  {
+   "type": "manpower",
+   "subject": "tim bongkar",
+   "value": 5,
+   "statement": "Dock crew has 5 people available this morning.",
+   "starts": "2026-08-31T06:00",
+   "ends": "2026-08-31T18:00",
+   "confidence": 0.97,
+   "source": {
+    "ref": "h080",
+    "at": "2026-08-31T06:00",
+    "sender": "Hendra",
+    "text": "Pagi, tim 5 orang. Tapi forklift 2 mogok bu, aki soak"
+   },
+   "id": 29,
+   "ended_at": null,
+   "ended_by": null
+  },
+  {
+   "type": "equipment",
+   "subject": "forklift 2",
+   "value": "broken",
+   "statement": "Forklift 2 is broken down due to a dead battery.",
+   "starts": "2026-08-31T06:00",
+   "ends": "2026-08-31T18:00",
+   "confidence": 0.98,
+   "source": {
+    "ref": "h080",
+    "at": "2026-08-31T06:00",
+    "sender": "Hendra",
+    "text": "Pagi, tim 5 orang. Tapi forklift 2 mogok bu, aki soak"
+   },
+   "id": 30,
+   "ended_at": "2026-08-31T13:00",
+   "ended_by": "h090"
+  },
+  {
+   "type": "stated_rule",
+   "subject": "bongkar 240 karton",
+   "value": null,
+   "statement": "With only 1 forklift, unloading 240 cartons takes 2 hours instead of the usual 1 hour.",
+   "starts": null,
+   "ends": null,
+   "confidence": 0.85,
+   "source": {
+    "ref": "h082",
+    "at": "2026-08-31T06:03",
+    "sender": "Hendra",
+    "text": "Iya bu, bongkar jadi 2 kali lebih lama. 240 karton biasanya 1 jam jadi 2 jam"
+   },
+   "id": 31,
+   "ended_at": null,
+   "ended_by": null
+  },
+  {
+   "type": "dock",
+   "subject": "dock bongkar",
+   "value": "2-hour gap between trucks while only 1 forklift available",
+   "statement": "Sari has set unloading schedule spacing at 2 hours per truck due to single forklift constraint.",
+   "starts": "2026-08-31T06:05",
+   "ends": "2026-08-31T18:05",
+   "confidence": 0.92,
+   "source": {
+    "ref": "h083",
+    "at": "2026-08-31T06:05",
+    "sender": "Sari",
+    "text": "Ok, jadwal bongkar dikasih jarak 2 jam per truk ya"
+   },
+   "id": 32,
+   "ended_at": null,
+   "ended_by": null
+  },
+  {
+   "type": "route",
+   "subject": "tol/jalan KM 30",
+   "value": "delay – flat tyre, changing tyre",
+   "statement": "Budi's truck has a flat tyre at KM 30; stopped for tyre change at 18:40.",
+   "starts": "2026-08-31T18:40",
+   "ends": "2026-08-31T19:30",
+   "confidence": 0.97,
+   "source": {
+    "ref": "h093",
+    "at": "2026-08-31T18:40",
+    "sender": "Budi",
+    "text": "Bu ban truk saya bocor di KM 30, ganti ban dulu"
+   },
+   "id": 33,
+   "ended_at": null,
+   "ended_by": null
+  },
+  {
+   "type": "driver_availability",
+   "subject": "Budi",
+   "value": "estimated arrival 22:30",
+   "statement": "Budi is moving again after tyre change; estimated arrival at warehouse 22:30.",
+   "starts": "2026-08-31T19:30",
+   "ends": "2026-09-01T07:30",
+   "confidence": 0.9,
+   "source": {
+    "ref": "h095",
+    "at": "2026-08-31T19:30",
+    "sender": "Budi",
+    "text": "Sudah jalan lagi, estimasi jam 10.30 malam"
+   },
+   "id": 34,
+   "ended_at": "2026-08-31T22:41",
+   "ended_by": "h099"
+  },
+  {
+   "type": "dock",
+   "subject": "dock Cikarang DC",
+   "value": "closes 22:00, reopens 06:00 next day",
+   "statement": "Dock closes at 22:00; unloading for late arrivals resumes next morning at 06:00.",
+   "starts": null,
+   "ends": "2026-09-01T07:32",
+   "confidence": 0.97,
+   "source": {
+    "ref": "h096",
+    "at": "2026-08-31T19:32",
+    "sender": "Sari",
+    "text": "Dock tutup jam 10 malam. Truk parkir di area tunggu aja ya pak, bongkar besok jam 6"
+   },
+   "id": 35,
+   "ended_at": null,
+   "ended_by": null
+  },
+  {
+   "type": "driver_availability",
+   "subject": "Budi",
+   "value": "resting",
+   "statement": "Budi is resting overnight in his truck at the waiting area.",
+   "starts": "2026-08-31T22:41",
+   "ends": "2026-09-01T10:41",
+   "confidence": 0.97,
+   "source": {
+    "ref": "h099",
+    "at": "2026-08-31T22:41",
+    "sender": "Budi",
+    "text": "Saya tidur di truk bu"
+   },
+   "id": 36,
+   "ended_at": "2026-09-01T07:05",
+   "ended_by": "h103"
+  },
+  {
+   "type": "equipment",
+   "subject": "forklift 2",
+   "value": "working",
+   "statement": "Forklift 2 is operational again after battery replacement.",
+   "starts": "2026-08-31T13:00",
+   "ends": "2026-09-01T01:00",
+   "confidence": 0.98,
+   "source": {
+    "ref": "h090",
+    "at": "2026-08-31T13:00",
+    "sender": "Hendra",
+    "text": "Forklift 2 sudah jalan lagi bu, aki diganti"
+   },
+   "id": 37,
+   "ended_at": "2026-09-04T06:05",
+   "ended_by": "h153"
+  },
+  {
+   "type": "manpower",
+   "subject": "tim bongkar",
+   "value": 5,
+   "statement": "Dock crew has 5 people available, starting unloading of DO 4514.",
+   "starts": "2026-09-01T06:05",
+   "ends": "2026-09-01T18:05",
+   "confidence": 0.95,
+   "source": {
+    "ref": "h101",
+    "at": "2026-09-01T06:05",
+    "sender": "Hendra",
+    "text": "Pagi, tim 5 orang, DO 4514 langsung bongkar"
+   },
+   "id": 38,
+   "ended_at": null,
+   "ended_by": null
+  },
+  {
+   "type": "driver_availability",
+   "subject": "Budi",
+   "value": "resting",
+   "statement": "Budi is resting until midday; plans one more run this afternoon.",
+   "starts": "2026-09-01T07:05",
+   "ends": "2026-09-01T12:00",
+   "confidence": 0.85,
+   "source": {
+    "ref": "h103",
+    "at": "2026-09-01T07:05",
+    "sender": "Budi",
+    "text": "Bu saya istirahat dulu sampai siang, nanti sore 1 rit lagi"
+   },
+   "id": 39,
+   "ended_at": "2026-09-07T15:45",
+   "ended_by": "h192"
+  },
+  {
+   "type": "stock",
+   "subject": "FG-4471",
+   "value": 0.7,
+   "statement": "Stock of mie FG-4471 will last approximately 0.7 days from now.",
+   "starts": "2026-09-01T11:15",
+   "ends": "2026-09-02T11:15",
+   "confidence": 0.95,
+   "source": {
+    "ref": "h108",
+    "at": "2026-09-01T11:15",
+    "sender": "Dewi",
+    "text": "Bu stok mie FG-4471 tinggal 0,7 hari lagi"
+   },
+   "id": 40,
+   "ended_at": "2026-09-02T07:10",
+   "ended_by": "h121"
+  },
+  {
+   "type": "driver_duty",
+   "subject": "Budi",
+   "value": null,
+   "statement": "Budi started driving DO 4518 at 13:00 on 2026-09-01.",
+   "starts": "2026-09-01T13:00",
+   "ends": "2026-09-02T13:00",
+   "confidence": 0.97,
+   "source": {
+    "ref": "h110",
+    "at": "2026-09-01T13:00",
+    "sender": "Budi",
+    "text": "Bu, DO 4518 berangkat jam 1 siang"
+   },
+   "id": 41,
+   "ended_at": "2026-09-02T12:30",
+   "ended_by": "h129"
+  },
+  {
+   "type": "route",
+   "subject": "tol Cikampek",
+   "value": "jam, ETA delayed to ~23:00",
+   "statement": "Traffic jam on Cikampek route; Budi estimates arrival at 23:00 instead of earlier.",
+   "starts": "2026-09-01T17:20",
+   "ends": "2026-09-01T20:20",
+   "confidence": 0.9,
+   "source": {
+    "ref": "h111",
+    "at": "2026-09-01T17:20",
+    "sender": "Budi",
+    "text": "Bu macet, estimasi sampai jam 11 malam"
+   },
+   "id": 42,
+   "ended_at": null,
+   "ended_by": null
+  },
+  {
+   "type": "manpower",
+   "subject": "tim bongkar",
+   "value": 2,
+   "statement": "Only 2 dock crew members are available for overtime tonight; others unavailable due to family commitments.",
+   "starts": "2026-09-01T17:30",
+   "ends": "2026-09-02T05:30",
+   "confidence": 0.97,
+   "source": {
+    "ref": "h113",
+    "at": "2026-09-01T17:30",
+    "sender": "Hendra",
+    "text": "Bu yang bisa cuma 2 orang, yang lain ada acara keluarga"
+   },
+   "id": 43,
+   "ended_at": null,
+   "ended_by": null
+  },
+  {
+   "type": "stated_rule",
+   "subject": "tim bongkar",
+   "value": "minimum 3",
+   "statement": "A minimum of 3 crew members is required to unload a full truck.",
+   "starts": null,
+   "ends": null,
+   "confidence": 0.9,
+   "source": {
+    "ref": "h114",
+    "at": "2026-09-01T17:32",
+    "sender": "Sari",
+    "text": "2 orang gak cukup buat bongkar truk penuh malam-malam, minimal 3. Ya sudah truk masuk area tunggu, bongkar jam 6 pagi paling awal"
+   },
+   "id": 44,
+   "ended_at": null,
+   "ended_by": null
+  },
+  {
+   "type": "manpower",
+   "subject": "tim bongkar",
+   "value": 5,
+   "statement": "Dock unloading crew has 5 people available, starting with DO 4518.",
+   "starts": "2026-09-02T06:00",
+   "ends": "2026-09-02T18:00",
+   "confidence": 0.95,
+   "source": {
+    "ref": "h119",
+    "at": "2026-09-02T06:00",
+    "sender": "Hendra",
+    "text": "Tim 5 orang, DO 4518 duluan bongkar"
+   },
+   "id": 45,
+   "ended_at": null,
+   "ended_by": null
+  },
+  {
+   "type": "stock",
+   "subject": "FG-4471",
+   "value": 2.0,
+   "statement": "Stock of mie FG-4471 is now safe at approximately 2 days.",
+   "starts": "2026-09-02T07:10",
+   "ends": "2026-09-03T07:10",
+   "confidence": 0.95,
+   "source": {
+    "ref": "h121",
+    "at": "2026-09-02T07:10",
+    "sender": "Dewi",
+    "text": "Stok mie aman lagi bu, 2 hari"
+   },
+   "id": 46,
+   "ended_at": "2026-09-07T10:30",
+   "ended_by": "h188"
+  },
+  {
+   "type": "weather",
+   "subject": "Cikarang DC",
+   "value": "rain",
+   "statement": "It is raining at the DC; dock 1 is wet.",
+   "starts": "2026-09-02T08:30",
+   "ends": "2026-09-02T11:30",
+   "confidence": 0.95,
+   "source": {
+    "ref": "h123",
+    "at": "2026-09-02T08:30",
+    "sender": "Hendra",
+    "text": "Bu hujan lagi, dock 1 basah semua"
+   },
+   "id": 47,
+   "ended_at": null,
+   "ended_by": null
+  },
+  {
+   "type": "dock",
+   "subject": "dock 1",
+   "value": "wet",
+   "statement": "Dock 1 is wet due to rain and cannot be used normally.",
+   "starts": "2026-09-02T08:30",
+   "ends": "2026-09-02T20:30",
+   "confidence": 0.95,
+   "source": {
+    "ref": "h123",
+    "at": "2026-09-02T08:30",
+    "sender": "Hendra",
+    "text": "Bu hujan lagi, dock 1 basah semua"
+   },
+   "id": 48,
+   "ended_at": null,
+   "ended_by": null
+  },
+  {
+   "type": "driver_duty",
+   "subject": "Budi",
+   "value": null,
+   "statement": "Budi started driving DO 4523 at 12:30 on 2026-09-02.",
+   "starts": "2026-09-02T12:30",
+   "ends": "2026-09-03T12:30",
+   "confidence": 0.95,
+   "source": {
+    "ref": "h129",
+    "at": "2026-09-02T12:30",
+    "sender": "Budi",
+    "text": "Bu DO 4523 mie berangkat jam setengah 1"
+   },
+   "id": 49,
+   "ended_at": "2026-09-03T07:30",
+   "ended_by": "h140"
+  },
+  {
+   "type": "weather",
+   "subject": "tol Cikampek",
+   "value": "heavy rain",
+   "statement": "Heavy rain reported on tol Cikampek at 14:10, causing traffic jam.",
+   "starts": "2026-09-02T14:10",
+   "ends": "2026-09-02T17:10",
+   "confidence": 0.95,
+   "source": {
+    "ref": "h130",
+    "at": "2026-09-02T14:10",
+    "sender": "Budi",
+    "text": "Hujan lebat bu di tol Cikampek, macet. Estimasi molor 2 jam, jam 5 sore"
+   },
+   "id": 50,
+   "ended_at": null,
+   "ended_by": null
+  },
+  {
+   "type": "route",
+   "subject": "tol Cikampek",
+   "value": "+2h",
+   "statement": "Traffic jam on tol Cikampek due to heavy rain; estimated delay of +2 hours.",
+   "starts": "2026-09-02T14:10",
+   "ends": "2026-09-02T17:10",
+   "confidence": 0.9,
+   "source": {
+    "ref": "h130",
+    "at": "2026-09-02T14:10",
+    "sender": "Budi",
+    "text": "Hujan lebat bu di tol Cikampek, macet. Estimasi molor 2 jam, jam 5 sore"
+   },
+   "id": 51,
+   "ended_at": null,
+   "ended_by": null
+  },
+  {
+   "type": "driver_availability",
+   "subject": "Hendra",
+   "value": "half day off",
+   "statement": "Hendra will be on half-day leave tomorrow morning (2026-09-03); Dedi will lead the morning dock team.",
+   "starts": "2026-09-03T00:00",
+   "ends": "2026-09-03T12:00",
+   "confidence": 0.9,
+   "source": {
+    "ref": "h135",
+    "at": "2026-09-02T19:20",
+    "sender": "Hendra",
+    "text": "Bu besok saya izin setengah hari, Dedi yang pegang tim pagi"
+   },
+   "id": 52,
+   "ended_at": null,
+   "ended_by": null
+  },
+  {
+   "type": "manpower",
+   "subject": "tim bongkar pagi",
+   "value": 4,
+   "statement": "Morning dock team has 4 people, led by Dedi on 2026-09-03.",
+   "starts": "2026-09-03T06:10",
+   "ends": "2026-09-03T18:10",
+   "confidence": 0.98,
+   "source": {
+    "ref": "h137",
+    "at": "2026-09-03T06:10",
+    "sender": "Hendra",
+    "text": "Pagi, tim 4 orang dipegang Dedi. Forklift 1 rem blong bu, gak boleh dipakai"
+   },
+   "id": 53,
+   "ended_at": null,
+   "ended_by": null
+  },
+  {
+   "type": "equipment",
+   "subject": "forklift 1",
+   "value": "broken",
+   "statement": "Forklift 1 has brake failure and must not be used.",
+   "starts": "2026-09-03T06:10",
+   "ends": "2026-09-03T18:10",
+   "confidence": 0.99,
+   "source": {
+    "ref": "h137",
+    "at": "2026-09-03T06:10",
+    "sender": "Hendra",
+    "text": "Pagi, tim 4 orang dipegang Dedi. Forklift 1 rem blong bu, gak boleh dipakai"
+   },
+   "id": 54,
+   "ended_at": "2026-09-03T14:00",
+   "ended_by": "h147"
+  },
+  {
+   "type": "driver_duty",
+   "subject": "Budi",
+   "value": null,
+   "statement": "Budi started driving DO 4525 from Cikampek at 07:30 on 2026-09-03.",
+   "starts": "2026-09-03T07:30",
+   "ends": "2026-09-04T07:30",
+   "confidence": 0.97,
+   "source": {
+    "ref": "h140",
+    "at": "2026-09-03T07:30",
+    "sender": "Budi",
+    "text": "Bu DO 4525 mie jalan dari Cikampek"
+   },
+   "id": 55,
+   "ended_at": "2026-09-04T10:00",
+   "ended_by": "h157"
+  },
+  {
+   "type": "equipment",
+   "subject": "forklift 1",
+   "value": "working",
+   "statement": "Forklift 1 has been repaired and is back in service.",
+   "starts": "2026-09-03T14:00",
+   "ends": "2026-09-04T02:00",
+   "confidence": 0.99,
+   "source": {
+    "ref": "h147",
+    "at": "2026-09-03T14:00",
+    "sender": "Hendra",
+    "text": "Forklift 1 sudah diperbaiki bu"
+   },
+   "id": 56,
+   "ended_at": "2026-09-04T06:05",
+   "ended_by": "h153"
+  },
+  {
+   "type": "driver_availability",
+   "subject": "Rudi",
+   "value": "not allowed to drive after 20:00",
+   "statement": "Rudi is not allowed to drive after 20:00.",
+   "starts": null,
+   "ends": "2026-09-04T03:33",
+   "confidence": 0.97,
+   "source": {
+    "ref": "h150",
+    "at": "2026-09-03T15:33",
+    "sender": "Rudi",
+    "text": "Iya bu, lewat jam 8 malam saya gak boleh"
+   },
+   "id": 57,
+   "ended_at": "2026-09-08T15:45",
+   "ended_by": "h218"
+  },
+  {
+   "type": "stated_rule",
+   "subject": "Rudi",
+   "value": "no driving at night",
+   "statement": "Rudi is not permitted to drive at night (confirmed by both supervisor and driver as a standing rule).",
+   "starts": null,
+   "ends": null,
+   "confidence": 0.92,
+   "source": {
+    "ref": "h149",
+    "at": "2026-09-03T15:32",
+    "sender": "Sari",
+    "text": "Jam 6 berangkat sampai jam 8 malam ya. Pak Rudi kan gak boleh nyetir malam"
+   },
+   "id": 58,
+   "ended_at": null,
+   "ended_by": null
+  },
+  {
+   "type": "manpower",
+   "subject": "tim bongkar",
+   "value": 5,
+   "statement": "Dock unloading team is 5 people, fully present.",
+   "starts": "2026-09-04T06:05",
+   "ends": "2026-09-04T18:05",
+   "confidence": 0.95,
+   "source": {
+    "ref": "h153",
+    "at": "2026-09-04T06:05",
+    "sender": "Hendra",
+    "text": "Pagi, tim 5 orang lengkap, kedua forklift jalan"
+   },
+   "id": 59,
+   "ended_at": null,
+   "ended_by": null
+  },
+  {
+   "type": "equipment",
+   "subject": "forklift 1",
+   "value": "working",
+   "statement": "Forklift 1 is operational.",
+   "starts": "2026-09-04T06:05",
+   "ends": "2026-09-04T18:05",
+   "confidence": 0.9,
+   "source": {
+    "ref": "h153",
+    "at": "2026-09-04T06:05",
+    "sender": "Hendra",
+    "text": "Pagi, tim 5 orang lengkap, kedua forklift jalan"
+   },
+   "id": 60,
+   "ended_at": null,
+   "ended_by": null
+  },
+  {
+   "type": "equipment",
+   "subject": "forklift 2",
+   "value": "working",
+   "statement": "Forklift 2 is operational.",
+   "starts": "2026-09-04T06:05",
+   "ends": "2026-09-04T18:05",
+   "confidence": 0.9,
+   "source": {
+    "ref": "h153",
+    "at": "2026-09-04T06:05",
+    "sender": "Hendra",
+    "text": "Pagi, tim 5 orang lengkap, kedua forklift jalan"
+   },
+   "id": 61,
+   "ended_at": "2026-09-08T11:00",
+   "ended_by": "h214"
+  },
+  {
+   "type": "driver_duty",
+   "subject": "Budi",
+   "value": null,
+   "statement": "Budi started driving DO 4529 (mie) from Cikampek at 10:00 on 2026-09-04.",
+   "starts": "2026-09-04T10:00",
+   "ends": "2026-09-05T10:00",
+   "confidence": 0.95,
+   "source": {
+    "ref": "h157",
+    "at": "2026-09-04T10:00",
+    "sender": "Budi",
+    "text": "Bu DO 4529 mie berangkat jam 10"
+   },
+   "id": 62,
+   "ended_at": "2026-09-07T05:00",
+   "ended_by": "h181"
+  },
+  {
+   "type": "manpower",
+   "subject": "tim bongkar",
+   "value": 1,
+   "statement": "During Friday prayer (11:30–13:00) only 1 dock crew member remains on duty.",
+   "starts": "2026-09-04T11:30",
+   "ends": "2026-09-04T13:00",
+   "confidence": 0.95,
+   "source": {
+    "ref": "h158",
+    "at": "2026-09-04T10:45",
+    "sender": "Hendra",
+    "text": "Bu ingat ya jumatan, jam 11.30 sampai 1 tim tinggal 1 orang"
+   },
+   "id": 63,
+   "ended_at": null,
+   "ended_by": null
+  },
+  {
+   "type": "stated_rule",
+   "subject": "tim bongkar",
+   "value": null,
+   "statement": "Every Friday, from 11:30 to 13:00, the dock team drops to 1 person for Friday prayers.",
+   "starts": null,
+   "ends": null,
+   "confidence": 0.9,
+   "source": {
+    "ref": "h158",
+    "at": "2026-09-04T10:45",
+    "sender": "Hendra",
+    "text": "Bu ingat ya jumatan, jam 11.30 sampai 1 tim tinggal 1 orang"
+   },
+   "id": 64,
+   "ended_at": null,
+   "ended_by": null
+  },
+  {
+   "type": "route",
+   "subject": "tol Cikampek",
+   "value": "+2h",
+   "statement": "Traffic jam on tol Cikampek Friday afternoon; Budi estimates arrival at 20:00 instead of around 18:00.",
+   "starts": "2026-09-04T17:30",
+   "ends": "2026-09-04T20:30",
+   "confidence": 0.85,
+   "source": {
+    "ref": "h163",
+    "at": "2026-09-04T17:30",
+    "sender": "Budi",
+    "text": "Jumat sore macet lagi bu, tol Cikampek. Estimasi jam 8 malam"
+   },
+   "id": 65,
+   "ended_at": null,
+   "ended_by": null
+  },
+  {
+   "type": "stated_rule",
+   "subject": "tol Cikampek",
+   "value": null,
+   "statement": "Tol Cikampek is regularly congested on Friday afternoons.",
+   "starts": null,
+   "ends": null,
+   "confidence": 0.85,
+   "source": {
+    "ref": "h163",
+    "at": "2026-09-04T17:30",
+    "sender": "Budi",
+    "text": "Jumat sore macet lagi bu, tol Cikampek. Estimasi jam 8 malam"
+   },
+   "id": 66,
+   "ended_at": null,
+   "ended_by": null
+  },
+  {
+   "type": "manpower",
+   "subject": "tim bongkar",
+   "value": 3,
+   "statement": "Saturday dock crew has 3 people available.",
+   "starts": "2026-09-05T00:00",
+   "ends": "2026-09-05T19:00",
+   "confidence": 0.95,
+   "source": {
+    "ref": "h167",
+    "at": "2026-09-05T07:00",
+    "sender": "Hendra",
+    "text": "Sabtu tim 3 orang"
+   },
+   "id": 67,
+   "ended_at": null,
+   "ended_by": null
+  },
+  {
+   "type": "manpower",
+   "subject": "tim bongkar",
+   "value": 2,
+   "statement": "Saturday team has left; only Hendra and Wawan remain on the dock.",
+   "starts": "2026-09-05T14:32",
+   "ends": "2026-09-06T02:32",
+   "confidence": 0.98,
+   "source": {
+    "ref": "h175",
+    "at": "2026-09-05T14:32",
+    "sender": "Hendra",
+    "text": "Bu tim sabtu sudah pulang, tinggal saya sama Wawan"
+   },
+   "id": 68,
+   "ended_at": null,
+   "ended_by": null
+  },
+  {
+   "type": "stated_rule",
+   "subject": "jam bongkar",
+   "value": "06:00–22:00",
+   "statement": "Dock unloading hours are fixed at 06:00–22:00 every day starting Monday.",
+   "starts": "2026-09-07T06:00",
+   "ends": null,
+   "confidence": 0.95,
+   "source": {
+    "ref": "h179",
+    "at": "2026-09-06T18:30",
+    "sender": "Sari",
+    "text": "Info besok: mulai senin jam bongkar tetap 06.00-22.00"
+   },
+   "id": 69,
+   "ended_at": null,
+   "ended_by": null
+  },
+  {
+   "type": "dock",
+   "subject": "dock bongkar",
+   "value": "hours 06:00–22:00",
+   "statement": "Dock unloading hours are 06:00–22:00 starting Monday 2026-09-07.",
+   "starts": "2026-09-07T06:00",
+   "ends": "2026-09-07T18:00",
+   "confidence": 0.95,
+   "source": {
+    "ref": "h179",
+    "at": "2026-09-06T18:30",
+    "sender": "Sari",
+    "text": "Info besok: mulai senin jam bongkar tetap 06.00-22.00"
+   },
+   "id": 70,
+   "ended_at": null,
+   "ended_by": null
+  },
+  {
+   "type": "driver_duty",
+   "subject": "Budi",
+   "value": null,
+   "statement": "Budi started driving from Cikampek at 05:00 on 2026-09-07.",
+   "starts": "2026-09-07T05:00",
+   "ends": "2026-09-08T05:00",
+   "confidence": 1.0,
+   "source": {
+    "ref": "h181",
+    "at": "2026-09-07T05:00",
+    "sender": "Budi",
+    "text": "Jalan dari Cikampek bu, DO 4537"
+   },
+   "id": 71,
+   "ended_at": null,
+   "ended_by": null
+  },
+  {
+   "type": "manpower",
+   "subject": "tim bongkar",
+   "value": 5,
+   "statement": "Dock unloading crew has 5 people available this morning.",
+   "starts": "2026-09-07T06:05",
+   "ends": "2026-09-07T18:05",
+   "confidence": 1.0,
+   "source": {
+    "ref": "h182",
+    "at": "2026-09-07T06:05",
+    "sender": "Hendra",
+    "text": "Pagi, tim 5 orang"
+   },
+   "id": 72,
+   "ended_at": null,
+   "ended_by": null
+  },
+  {
+   "type": "stock",
+   "subject": "mie",
+   "value": 0.9,
+   "statement": "Mie stock has dropped to 0.9 days remaining.",
+   "starts": "2026-09-07T10:30",
+   "ends": "2026-09-08T10:30",
+   "confidence": 1.0,
+   "source": {
+    "ref": "h188",
+    "at": "2026-09-07T10:30",
+    "sender": "Dewi",
+    "text": "Bu stok mie turun lagi, tinggal 0,9 hari"
+   },
+   "id": 73,
+   "ended_at": "2026-09-08T16:30",
+   "ended_by": "h220"
+  },
+  {
+   "type": "route",
+   "subject": "tol Cikampek",
+   "value": "severe jam",
+   "statement": "There is an accident on the toll road causing severe congestion; Budi estimates arrival at 21:00 instead of earlier.",
+   "starts": "2026-09-07T15:40",
+   "ends": "2026-09-07T18:40",
+   "confidence": 0.9,
+   "source": {
+    "ref": "h191",
+    "at": "2026-09-07T15:40",
+    "sender": "Budi",
+    "text": "Bu ada kecelakaan di tol, macet parah. Estimasi jam 9 malam"
+   },
+   "id": 74,
+   "ended_at": null,
+   "ended_by": null
+  },
+  {
+   "type": "driver_availability",
+   "subject": "Budi",
+   "value": "not allowed to drive after 21:00",
+   "statement": "Budi must not drive past 21:00 on 2026-09-07 as he started at 05:00 (16-hour limit applied to this case).",
+   "starts": null,
+   "ends": "2026-09-07T21:00",
+   "confidence": 0.95,
+   "source": {
+    "ref": "h192",
+    "at": "2026-09-07T15:45",
+    "sender": "Sari",
+    "text": "Pak Budi dari jam 5 pagi, jam 9 malam itu sudah 16 jam. Gak boleh. Pak Agus bisa gantikan?"
+   },
+   "id": 75,
+   "ended_at": "2026-09-07T15:51",
+   "ended_by": "h194"
+  },
+  {
+   "type": "driver_availability",
+   "subject": "Agus",
+   "value": "free to take over",
+   "statement": "Agus is available and departing from the Cikampek pool to relieve Budi at KM 39.",
+   "starts": "2026-09-07T15:50",
+   "ends": "2026-09-08T03:50",
+   "confidence": 1.0,
+   "source": {
+    "ref": "h193",
+    "at": "2026-09-07T15:50",
+    "sender": "Agus",
+    "text": "Bisa bu, saya jalan dari pool, ketemu pak Budi di KM 39"
+   },
+   "id": 76,
+   "ended_at": "2026-09-07T17:05",
+   "ended_by": "h199"
+  },
+  {
+   "type": "driver_availability",
+   "subject": "Budi",
+   "value": "resting",
+   "statement": "Budi is instructed to rest and will not drive further after the handover at KM 39.",
+   "starts": "2026-09-07T15:51",
+   "ends": "2026-09-08T03:51",
+   "confidence": 1.0,
+   "source": {
+    "ref": "h194",
+    "at": "2026-09-07T15:51",
+    "sender": "Sari",
+    "text": "Ok. Pak Budi istirahat ya, biar pak Agus yang bawa"
+   },
+   "id": 77,
+   "ended_at": "2026-09-08T10:00",
+   "ended_by": "h211"
+  },
+  {
+   "type": "manpower",
+   "subject": "tim bongkar",
+   "value": 3,
+   "statement": "3 dock crew members are available for overnight unloading of mie tonight.",
+   "starts": "2026-09-07T16:10",
+   "ends": "2026-09-08T04:10",
+   "confidence": 1.0,
+   "source": {
+    "ref": "h197",
+    "at": "2026-09-07T16:10",
+    "sender": "Hendra",
+    "text": "Ada bu, 3 orang"
+   },
+   "id": 78,
+   "ended_at": null,
+   "ended_by": null
+  },
+  {
+   "type": "driver_availability",
+   "subject": "Agus",
+   "value": "standing by",
+   "statement": "Agus has taken over DO 4540 from Budi at KM 39 and is now driving the delivery.",
+   "starts": "2026-09-07T17:05",
+   "ends": "2026-09-08T05:05",
+   "confidence": 1.0,
+   "source": {
+    "ref": "h199",
+    "at": "2026-09-07T17:05",
+    "sender": "Agus",
+    "text": "Sudah ganti supir di KM 39, DO 4540 saya bawa"
+   },
+   "id": 79,
+   "ended_at": "2026-09-08T10:00",
+   "ended_by": "h211"
+  },
+  {
+   "type": "manpower",
+   "subject": "tim bongkar",
+   "value": 5,
+   "statement": "Dock crew has 5 people available this morning.",
+   "starts": "2026-09-08T06:00",
+   "ends": "2026-09-08T18:00",
+   "confidence": 0.95,
+   "source": {
+    "ref": "h203",
+    "at": "2026-09-08T06:00",
+    "sender": "Hendra",
+    "text": "Pagi, tim 5 orang"
+   },
+   "id": 80,
+   "ended_at": null,
+   "ended_by": null
+  },
+  {
+   "type": "weather",
+   "subject": "Cikarang DC",
+   "value": "heavy rain",
+   "statement": "Heavy rain reported at the warehouse at 08:00.",
+   "starts": "2026-09-08T08:00",
+   "ends": "2026-09-08T11:00",
+   "confidence": 0.95,
+   "source": {
+    "ref": "h205",
+    "at": "2026-09-08T08:00",
+    "sender": "Hendra",
+    "text": "Hujan deras bu"
+   },
+   "id": 81,
+   "ended_at": null,
+   "ended_by": null
+  },
+  {
+   "type": "dock",
+   "subject": "dock 1",
+   "value": "no roof – unusable in rain",
+   "statement": "Dock 1 has no roof and cannot be used for unloading during rain.",
+   "starts": null,
+   "ends": "2026-09-08T20:01",
+   "confidence": 0.97,
+   "source": {
+    "ref": "h206",
+    "at": "2026-09-08T08:01",
+    "sender": "Sari",
+    "text": "Karton masuk dock 2 ya pak, dock 1 gak ada atap"
+   },
+   "id": 82,
+   "ended_at": null,
+   "ended_by": null
+  },
+  {
+   "type": "driver_availability",
+   "subject": "Budi",
+   "value": "day off",
+   "statement": "Budi is on a day off today; Agus will take his run.",
+   "starts": "2026-09-08T00:00",
+   "ends": "2026-09-08T23:59",
+   "confidence": 0.99,
+   "source": {
+    "ref": "h211",
+    "at": "2026-09-08T10:00",
+    "sender": "Budi",
+    "text": "Bu hari ini saya libur ya, pak Agus yang jalan"
+   },
+   "id": 83,
+   "ended_at": null,
+   "ended_by": null
+  },
+  {
+   "type": "driver_availability",
+   "subject": "Agus",
+   "value": "standing by – covering Budi's run",
+   "statement": "Agus is covering Budi's delivery run today instead of Budi.",
+   "starts": "2026-09-08T00:00",
+   "ends": "2026-09-08T22:00",
+   "confidence": 0.99,
+   "source": {
+    "ref": "h211",
+    "at": "2026-09-08T10:00",
+    "sender": "Budi",
+    "text": "Bu hari ini saya libur ya, pak Agus yang jalan"
+   },
+   "id": 84,
+   "ended_at": null,
+   "ended_by": null
+  },
+  {
+   "type": "equipment",
+   "subject": "forklift 2",
+   "value": "suspected fault – making strange noise",
+   "statement": "Forklift 2 is making a strange noise again and may break down.",
+   "starts": "2026-09-08T11:00",
+   "ends": "2026-09-08T23:00",
+   "confidence": 0.85,
+   "source": {
+    "ref": "h214",
+    "at": "2026-09-08T11:00",
+    "sender": "Hendra",
+    "text": "Bu forklift 2 bunyi aneh lagi, takut mogok"
+   },
+   "id": 85,
+   "ended_at": null,
+   "ended_by": null
+  },
+  {
+   "type": "driver_availability",
+   "subject": "Rudi",
+   "value": "scheduled departure 08:00 tomorrow",
+   "statement": "Rudi is scheduled to depart with DO 4522 (karton) at 08:00 on 2026-09-09.",
+   "starts": "2026-09-09T08:00",
+   "ends": "2026-09-09T20:00",
+   "confidence": 0.95,
+   "source": {
+    "ref": "h218",
+    "at": "2026-09-08T15:45",
+    "sender": "Rudi",
+    "text": "Bu besok pagi DO 4522 karton, jadwal jam 8"
+   },
+   "id": 86,
+   "ended_at": null,
+   "ended_by": null
+  },
+  {
+   "type": "stock",
+   "subject": "mie",
+   "value": 1.5,
+   "statement": "Mie stock has recovered to 1.5 days remaining as of 16:30.",
+   "starts": "2026-09-08T16:30",
+   "ends": "2026-09-09T16:30",
+   "confidence": 0.95,
+   "source": {
+    "ref": "h220",
+    "at": "2026-09-08T16:30",
+    "sender": "Dewi",
+    "text": "Stok mie 1,5 hari bu"
+   },
+   "id": 87,
+   "ended_at": null,
+   "ended_by": null
+  }
+ ]
+}

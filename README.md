@@ -85,10 +85,18 @@ curl -s localhost:8000/_debug/state | python3 -m json.tool
 
 ## Memory across restarts
 
-Set `DATABASE_URL` (a Postgres connection string) on `runa-sap` and every
-change is saved: SAP records, the change log, dashboard events and the
-notebook. A deploy or a crash no longer wipes them. Without it, runa-sap
-keeps everything in memory, as before. The code is in `store.py`.
+runa-sap saves every change to a database, so a deploy or a crash doesn't
+wipe the SAP records, dashboard events, facts, learned rules and decisions.
+The code is in `store.py`. Which database depends on the settings on runa-sap:
+
+| Setting | Database |
+|---|---|
+| `RUNA_DYNAMO_TABLE` (+ AWS keys and `AWS_REGION`) | Amazon DynamoDB |
+| `DATABASE_URL` | Postgres (e.g. Neon) |
+| neither | memory only, as before |
+
+The DynamoDB table needs one key: `pk` (String). Each collection is one item
+(split into parts above 350 KB).
 
 What is kept:
 
@@ -96,10 +104,11 @@ What is kept:
 - older messages only if they led to something: an SAP write, a question,
   a handoff, a dock conflict or an undo
 - small talk is forgotten after 24 hours
-- SAP records, the change log and the notebook are never trimmed (audit trail)
+- SAP records, the change log, the notebook, facts and decisions are never
+  trimmed (audit trail)
 
 `/reset` still puts everything back to the demo data, in the database too.
-`/_debug/state` shows `"storage"`: `database`, or why it isn't saving.
+`/_debug/state` shows `"storage"`: which database, or why it isn't saving.
 
 ## Capture your demo evidence
 

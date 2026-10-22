@@ -21,6 +21,15 @@ class FakeAI:
     def __init__(self):
         self.listens, self.resolves, self.decisions, self.answers = [], [], [], []
         self.notes, self.note_calls = [], 0
+        self.plans, self.reviews = [], []
+
+    def review_plan(self, *args):
+        return self.reviews.pop(0) if self.reviews else {"reviews": [], "missed": []}
+
+    def make_plan(self, *args):
+        if self.plans:
+            return self.plans.pop(0)
+        raise agents.ModelError("no plan queued")   # default: Planner unavailable
 
     def listen(self, message, sender):
         if self.listens:
@@ -60,6 +69,9 @@ def fresh():
     agents.interpret_decision = ai.interpret_decision
     agents.match_answer = ai.match_answer
     agents.draft_note = ai.draft_note
+    import planner
+    planner.make_plan = ai.make_plan
+    planner.review_plan = ai.review_plan
     agents._notebook["notes"] = None              # fresh notebook after reset
     return ai, Runa(Trace(echo=False))
 
@@ -722,6 +734,388 @@ def test_undo_with_nothing_to_undo():
     out = r.undo("Sari")
     check("/undo with nothing written says so, touches nothing",
           "Belum ada" in out[0] and not sap()["change_log"])
+
+
+# ---------------------------------------------------------------- facts ---
+def _msg(text, sender="Budi", at="2026-09-09T15:40", mid="m1"):
+    return [{"id": mid, "sender": sender, "text": text, "at": at}]
+
+
+def test_fact_check_keeps_real_and_drops_made_up():
+    import facts
+    msgs = _msg("Bu saya sudah nyetir dari jam 5 pagi, forklift 2 mogok")
+    raw = {"facts": [
+        {"msg": "m1", "type": "driver_duty", "subject": "Budi", "statement": "Budi started at 05:00",
+         "starts": "2026-09-09T05:00", "confidence": 0.9},
+        {"msg": "m1", "type": "equipment", "subject": "forklift 2", "value": "broken",
+         "statement": "Forklift 2 is broken", "confidence": 0.95},
+        {"msg": "m9", "type": "weather", "subject": "gudang", "statement": "Heavy rain",
+         "confidence": 0.9},                                    # no such message
+        {"msg": "m1", "type": "mood", "subject": "Budi", "statement": "Budi is tired",
+         "confidence": 0.9},                                    # not a fact type
+        {"msg": "m1", "type": "driver_duty", "subject": "Budi", "statement": "starts later",
+         "starts": "2026-09-09T18:00", "confidence": 0.9},      # starts after the message
+        {"msg": "m1", "type": "stock", "subject": "FG-4471", "value": "banyak",
+         "statement": "Lots of stock", "confidence": 0.9},      # stock needs a number
+    ]}
+    kept, _ = facts.check_facts(raw, msgs, [])
+    check("Fact check keeps a real start time and a broken forklift",
+          [f["type"] for f in kept] == ["driver_duty", "equipment"])
+    check("A broken forklift expires after 12 hours unless someone says otherwise",
+          kept[1]["ends"] == "2026-09-09T03:40".replace("09T03", "10T03"))
+    check("Each fact keeps the message it came from",
+          kept[0]["source"]["text"].startswith("Bu saya sudah nyetir"))
+
+
+def test_fact_check_ends_only_known_facts():
+    import facts
+    active = [{"id": 4, "type": "equipment", "subject": "forklift 2", "statement": "broken"}]
+    _, ended = facts.check_facts({"ended": [{"id": 4, "msg": "m1"}, {"id": 99, "msg": "m1"}]},
+                                 _msg("forklift 2 sudah jalan lagi"), active)
+    check("'Forklift jalan lagi' ends the known fact and nothing else",
+          [e["id"] for e in ended] == [4])
+
+
+def test_newer_fact_replaces_older_one():
+    import facts
+    def f(i, kind, subject, at):
+        return {"id": i, "type": kind, "subject": subject, "ended_at": None,
+                "source": {"at": at}}
+    older = [f(1, "equipment", "Forklift 2", "2026-08-31T06:00"),
+             f(2, "stock", "mie", "2026-09-07T10:30"),
+             f(3, "manpower", "tim bongkar", "2026-09-07T06:05")]
+    check("'Forklift 2 working' ends 'forklift 2 broken'",
+          facts.superseded(f(None, "equipment", "forklift 2", "2026-08-31T13:00"), older) == [1])
+    check("A new FG-4471 stock figure ends the old 'mie' one",
+          facts.superseded(f(None, "stock", "FG-4471", "2026-09-08T16:30"), older) == [2])
+    check("Crew facts are never replaced automatically (could be another shift)",
+          facts.superseded(f(None, "manpower", "tim bongkar", "2026-09-07T16:10"), older) == [])
+
+
+def test_chatter_costs_no_ai_call():
+    import facts
+    check("'Siap bu 👍' is not sent to the AI, 'Hujan deras' is",
+          facts.is_chatter("Siap bu 👍") and not facts.is_chatter("Hujan deras bu"))
+
+
+def test_observe_saves_facts_and_never_breaks():
+    import facts
+    ai, r = fresh()
+    real = facts.read_facts
+    facts.read_facts = lambda msgs, active, people, context=None: facts.check_facts(
+        {"facts": [{"msg": msgs[0]["id"], "type": "manpower", "subject": "tim bongkar",
+                    "value": 2, "statement": "Only 2 crew tonight", "confidence": 0.9}]},
+        msgs, active)
+    try:
+        r.handle("Hendra", "malam ini yang bisa lembur cuma 2 orang")
+        r.observe("Hendra", "malam ini yang bisa lembur cuma 2 orang")
+        saved = httpx.get(f"{SAP_BASE}/runa/facts", timeout=5).json()
+        check("A crew count from the chat lands in the fact list",
+              len(saved) == 1 and saved[0]["value"] == 2 and saved[0]["source"]["sender"] == "Hendra")
+        def broken(*a, **k):
+            raise agents.ModelError("AI down")
+        facts.read_facts = broken
+        check("If the AI is down, reading facts fails quietly",
+              r.observe("Hendra", "forklift rusak") == [])
+    finally:
+        facts.read_facts = real
+
+
+# ---------------------------------------------------------------- rules ---
+def _fact(i, kind, at, sender="Sari", text="..."):
+    return {"id": i, "type": kind, "subject": "x", "statement": "x",
+            "source": {"ref": f"h{i:03d}", "at": at, "sender": sender, "text": text}}
+
+
+RULE_FACTS = [_fact(1, "stated_rule", "2026-08-27T16:06", text="Supir maksimal 12 jam kerja"),
+              _fact(2, "equipment", "2026-08-31T06:00"), _fact(3, "equipment", "2026-09-03T06:10"),
+              _fact(4, "route", "2026-08-30T09:15", sender="Tono", text="car free day")]
+
+
+def test_rule_checks_need_evidence():
+    import rules
+    raw = {"rules": [
+        {"rule": "Drivers work at most 12 hours including rest.", "kind": "stated", "evidence": [1]},
+        {"rule": "With one forklift, unloading takes twice as long.", "kind": "pattern", "evidence": [2, 3]},
+        {"rule": "The Jababeka road is closed on Sundays.", "kind": "pattern", "evidence": [4]},
+        {"rule": "Forklifts always break on Mondays.", "kind": "stated", "evidence": [2]},
+        {"rule": "Trucks never arrive late.", "kind": "pattern", "evidence": [77, 78]},
+        {"rule": "Budi: Carrier driver for PT Sinar Baja Logistik.", "kind": "stated", "evidence": [1]},
+    ]}
+    kept, dropped = rules.check_rules(raw, RULE_FACTS,
+                                      ["Budi: Carrier driver for PT Sinar Baja Logistik."])
+    check("A stated rule and a 2-day pattern are kept, with their messages",
+          [r["rule"][:7] for r in kept] == ["Drivers", "With on"]
+          and kept[0]["evidence"][0]["text"] == "Supir maksimal 12 jam kerja")
+    reasons = [d["dropped"] for d in dropped]
+    check("A one-day event, an unstated 'stated' rule, made-up evidence and a "
+          "repeat of the notebook are all dropped",
+          len(dropped) == 4 and "seen on 1 day" in reasons[0] and "nobody stated" in reasons[1]
+          and reasons[2] == "cites no real fact" and reasons[3] == "already in the notebook")
+
+
+def test_rejected_rule_gets_one_second_look():
+    import rules
+    answers = [
+        {"rules": [{"rule": "Dock 1 has no roof; in rain use dock 2.", "kind": "stated",
+                    "evidence": [2]}]},                                   # wrong kind, 1 day
+        {"rules": [{"rule": "Dock 1 has no roof; in rain use dock 2.", "kind": "pattern",
+                    "evidence": [2, 3]},                                  # 2 days: proven
+                   {"rule": "A brand new rule.", "kind": "pattern", "evidence": [2, 3]}]},
+    ]
+    real = agents._ask
+    agents._ask = lambda *a, **k: answers.pop(0)
+    try:
+        kept, dropped = rules.propose_rules(RULE_FACTS, [])
+    finally:
+        agents._ask = real
+    check("A rule rejected for thin evidence comes back once it cites 2 days",
+          len(kept) == 2 and kept[0]["second_look"] and kept[0]["kind"] == "pattern")
+
+
+def test_rule_score_uses_evidence_not_ai():
+    import rules
+    key = {"rules": [{"id": "R1", "seen": ["08-27 16:06"]}, {"id": "R5", "seen": ["08-31 06:03"]}],
+           "one_offs_not_rules": [{"id": "D1", "seen": ["08-30 09:15"]}]}
+    proposed = [{"rule": "12 hours", "evidence": [{"at": "2026-08-27T16:06"}]},
+                {"rule": "Sunday closure", "evidence": [{"at": "2026-08-30T09:15"}]}]
+    result = rules.score(proposed, key)
+    check("Scoring: R1 found, R5 missed, the Sunday closure counted as a trap",
+          list(result["found"]) == ["R1"] and result["missed"] == ["R5"]
+          and result["traps"][0][0] == ["D1"])
+
+
+def test_learned_rules_need_approval_and_stay_out_of_listener():
+    import rules
+    ai, r = fresh()
+    real = rules.propose_rules
+    rules.propose_rules = lambda f, n: rules.check_rules(
+        {"rules": [{"rule": "Drivers work at most 12 hours including rest.",
+                    "kind": "stated", "evidence": [1]}]}, RULE_FACTS, n)
+    import facts
+    real_get = facts.get_facts
+    facts.get_facts = lambda: RULE_FACTS
+    try:
+        refused = r.learn_rules("Budi")
+        out = r.learn_rules("Sari")
+        notebook = httpx.get(f"{SAP_BASE}/runa/notebook", timeout=5).json()
+        rule = next(n for n in notebook if n.get("kind") == "rule")
+        check("Only a supervisor can ask Runa to learn rules", "hanya supervisor" in refused[0])
+        check("/pelajari proposes the rule with its source message, not yet in use",
+              rule["status"] == "proposed" and rule["evidence"][0]["ref"] == "h001"
+              and "/setuju" in out[0] and not agents.approved_rules())
+        r.review("Sari", rule["id"], True)
+        agents._notebook["notes"] = None
+        check("After /setuju the Planner gets the rule, the Listener still doesn't",
+              [x["text"] for x in agents.approved_rules()] == [rule["text"]]
+              and rule["text"] not in agents.notes_for("Budi", "12 jam"))
+    finally:
+        rules.propose_rules, facts.get_facts = real, real_get
+
+
+# -------------------------------------------------------------- planner ---
+def planner_setup():
+    """Budi started at 05:00 (14.7 hours by 19:42), Agus is free at the
+    Cikampek pool, and the 12-hour rule is approved."""
+    ai, r = fresh()
+    src = lambda who, at, text: {"ref": "t", "at": at, "sender": who, "text": text}
+    created = httpx.post(f"{SAP_BASE}/runa/facts", headers=SAP_HEADERS, timeout=5, json={"facts": [
+        {"type": "driver_duty", "subject": "Budi", "value": None, "statement": "Budi started at 05:00",
+         "starts": "2026-09-09T05:00", "ends": "2026-09-10T05:00", "confidence": 0.95,
+         "source": src("Budi", "2026-09-09T05:02", "jalan dari Cikampek jam 5")},
+        {"type": "driver_availability", "subject": "Agus", "value": "standby",
+         "statement": "Agus is free at the Cikampek pool", "starts": None,
+         "ends": "2026-09-10T08:00", "confidence": 0.9,
+         "source": src("Agus", "2026-09-09T15:00", "saya standby di pool")}]}).json()["created"]
+    rule = agents.add_note("Drivers work at most 12 hours a day including rest.",
+                           status="approved", source="supervisor", by="Sari", kind="rule")
+    return ai, r, [f["id"] for f in created], rule["id"]
+
+
+def plan_options(budi, agus, rule):
+    return {"options": [
+        {"title": "Agus gantikan Budi, bongkar besok 06:00",
+         "actions": [{"type": "swap_driver", "driver": "Agus", "where": "rest area KM 57"},
+                     {"type": "reschedule", "time": "2026-09-10T06:00"}],
+         "why": "Budi sudah terlalu lama bekerja", "facts": [budi, agus], "rules": [rule]},
+        {"title": "Perpanjang dock sampai 23:30",
+         "actions": [{"type": "extend_dock", "until": "23:30"}],
+         "why": "Barang masuk malam ini", "facts": [budi], "rules": []},
+        {"title": "Budi istirahat, bongkar besok 07:00",
+         "actions": [{"type": "driver_rests", "where": "rest area"},
+                     {"type": "reschedule", "time": "2026-09-10T07:00"}],
+         "why": "Budi istirahat dulu", "facts": [budi], "rules": [rule]},
+        {"title": "Joko gantikan Budi",
+         "actions": [{"type": "swap_driver", "driver": "Joko"}], "facts": [], "rules": []},
+        {"title": "Pakai info stok", "actions": [{"type": "reschedule", "time": "2026-09-10T06:00"}],
+         "facts": [999], "rules": []},
+    ], "rejected": [{"title": "Lembur bongkar", "reason": "Kru lembur kurang dari 3", "rules": []}]}
+
+
+def test_planner_options_obey_the_code_checks():
+    ai, r, (budi, agus), rule = planner_setup()
+    ai.plans = [plan_options(budi, agus, rule)]
+    out = late_conflict(r, ai)
+    msg = out[-1]
+    check("Planner: the tired driver's hours are computed by code and shown",
+          "Budi bekerja sejak 05:00 (14 jam 42 menit" in msg)
+    check("Planner: keeping the dock open for Budi is refused by code (18 h > 12 h, UU 22/2009)",
+          "✗ Perpanjang dock sampai 23:30: Budi akan bekerja 18 jam" in msg and "UU 22/2009" in msg)
+    check("Planner: refusals that only catch AI mistakes stay out of Sari's message",
+          "Joko" not in msg and "Pakai info stok" not in msg and "✗ Lembur bongkar" in msg)
+    check("Planner: a driver Runa doesn't know and a made-up fact are both refused",
+          "Joko" not in msg.split("Tidak disarankan")[0] and "Pakai info stok" not in msg.split("Tidak disarankan")[0])
+    check("Planner: two safe options, lettered a and b by the code",
+          "a) Agus gantikan Budi" in msg and "b) Budi istirahat" in msg and "c)" not in msg)
+
+
+def test_planner_choice_writes_and_undoes():
+    ai, r, (budi, agus), rule = planner_setup()
+    ai.plans = [plan_options(budi, agus, rule)]
+    late_conflict(r, ai)
+    ai.decisions = [{"choice": "a"}]
+    out = r.handle("Sari", "a aja, Agus yang bawa")
+    d = sap()["deliveries"]["0080004521"]
+    check("Choosing a: Agus takes over and unloading moves to 06:00, in SAP",
+          d["CarrierContact"] == "Agus" and d["PlannedGoodsReceipt"] == "2026-09-10T06:00:00"
+          and "Tercatat di SAP" in out[0])
+    log = httpx.get(f"{SAP_BASE}/runa/decisions", timeout=5).json()
+    check("The options offered and Sari's choice are kept for the audit trail",
+          len(log) == 1 and log[0]["chosen"] == "a" and log[0]["by"] == "Sari")
+    r.undo("Sari")
+    d = sap()["deliveries"]["0080004521"]
+    check("/undo puts Budi and 23:00 back",
+          d["CarrierContact"] == "Budi Santoso" and d["PlannedGoodsReceipt"] == "2026-09-09T23:00:00")
+
+
+def test_planner_letter_must_exist():
+    ai, r, (budi, agus), rule = planner_setup()
+    ai.plans = [plan_options(budi, agus, rule)]
+    late_conflict(r, ai)
+    ai.decisions = [{"choice": "c"}]                 # only a and b were offered
+    r.handle("Sari", "opsi c")
+    check("Choosing a letter that wasn't offered changes nothing",
+          sap()["deliveries"]["0080004521"]["CarrierContact"] == "Budi Santoso"
+          and r.pending_decision is not None)
+
+
+def test_planner_with_one_safe_option_falls_back():
+    ai, r, (budi, agus), rule = planner_setup()
+    ai.plans = [{"options": [plan_options(budi, agus, rule)["options"][1]]}]   # only the unsafe one
+    out = late_conflict(r, ai)
+    check("If fewer than 2 options are safe, Sari gets the fixed a/b instead",
+          "perpanjang shift" in out[-1] and r.pending_decision.plan is None)
+
+
+def test_planner_self_reported_violation_is_refused():
+    ai, r, (budi, agus), rule = planner_setup()
+    options = plan_options(budi, agus, rule)
+    options["options"][0]["violates"] = [f"R{rule}"]            # the AI admits it breaks a rule
+    options["options"][2]["facts"] = [f"F{budi}"]               # ids written as text
+    ai.plans = [options]
+    msg = late_conflict(r, ai)[-1]
+    check("An option the Planner itself marks as breaking a rule is refused",
+          "Agus gantikan" not in msg.split("Opsi:")[1].split("Tidak disarankan")[0]
+          and "melanggar aturan" in msg)
+    check("Fact ids written as 'F3' are understood",
+          "a) Budi istirahat" in msg and "Yang Runa tahu" in msg)
+
+
+def test_reviewer_removes_an_option_that_breaks_a_rule():
+    ai, r, (budi, agus), rule = planner_setup()
+    ai.plans = [plan_options(budi, agus, rule)]
+    ai.reviews = [{"reviews": [
+        {"label": "a", "breaks": [{"rule": f"R{rule}", "fact": None,
+                                   "why": "Kru lembur hanya 2, minimal 3"}]},
+        {"label": "b", "breaks": [{"rule": "R999", "fact": None, "why": "khawatir saja"}]}],
+        "missed": [{"fact": f"F{agus}", "why": "Agus standby tapi tidak dipakai"}]}]
+    msg = late_conflict(r, ai)[-1]
+    check("Reviewer: an option tied to a real rule is taken out, the rest relettered",
+          "a) Budi istirahat" in msg and "✗ Agus gantikan Budi, bongkar besok 06:00: Kru lembur hanya 2" in msg)
+    check("Reviewer: a worry tied to no real rule changes nothing; a missed fact is shown",
+          "khawatir" not in msg and "Perhatikan: Agus standby" in msg)
+    check("With one option left, Sari is asked to confirm it",
+          "balas a untuk setuju" in msg)
+
+
+def test_no_safe_option_falls_back_with_warnings():
+    ai, r, (budi, agus), rule = planner_setup()
+    ai.plans = [plan_options(budi, agus, rule)]
+    ai.reviews = [{"reviews": [{"label": l, "breaks": [{"rule": f"R{rule}", "why": "tidak aman"}]}
+                               for l in "ab"]}]
+    msg = late_conflict(r, ai)[-1]
+    check("No option keeps every rule: Runa says so, with reasons, and the human decides",
+          "tidak menemukan opsi yang memenuhi semua aturan" in msg and "✗ Agus gantikan" in msg
+          and "perpanjang shift" in msg and r.pending_decision.plan is None)
+
+
+def test_telegram_confirms_first_then_plans():
+    ai, r, (budi, agus), rule = planner_setup()
+    r.defer_planning = True
+    ai.plans = [plan_options(budi, agus, rule)]
+    out = late_conflict(r, ai)
+    later = r.finish_escalation()
+    check("Telegram: Budi gets the SAP confirmation at once, the options follow",
+          "Tercatat di SAP" in out[0] and "menyusun opsi" in out[-1]
+          and "a) Agus gantikan Budi" in later[0] and r.finish_escalation() == [])
+
+
+def test_dock_can_stay_open_past_midnight():
+    import planner
+    from datetime import datetime
+    d = {"InboundDelivery": "0080004521", "PlannedGoodsReceipt": "2026-09-09T23:00:00",
+         "DockOpeningTime": "06:00", "DockClosingTime": "22:00", "CarrierContact": "Agus",
+         "ReceivingDock": "DOCK-02"}
+    now = datetime(2026, 9, 9, 19, 42)
+    ok = planner.check_plan({"options": [{"title": "Lembur sampai 01:00",
+                                          "actions": [{"type": "extend_dock", "until": "01:00"}]}]},
+                            d, [], [], now)
+    late = planner.check_plan({"options": [{"title": "Buka sampai 07:00",
+                                            "actions": [{"type": "extend_dock", "until": "07:00"}]}]},
+                              d, [], [], now)
+    short = planner.check_plan({"options": [{"title": "Buka sampai 22:30",
+                                             "actions": [{"type": "extend_dock", "until": "22:30"}]}]},
+                               d, [], [], now)
+    check("Keeping the dock open until 01:00 (past midnight) is understood",
+          len(ok["options"]) == 1)
+    check("Open until 07:00 the next day is refused; open until 22:30 doesn't fit a 23:00 truck",
+          not late["options"] and not short["options"] and "saat dock tutup" in short["rejected"][0]["reason"])
+
+
+def test_same_dock_is_not_a_move_and_rule_ids_read_well():
+    import planner
+    from datetime import datetime
+    d = {"InboundDelivery": "0080004521", "PlannedGoodsReceipt": "2026-09-09T23:00:00",
+         "DockOpeningTime": "06:00", "DockClosingTime": "22:00", "CarrierContact": "Agus",
+         "ReceivingDock": "DOCK-02"}
+    plan = planner.check_plan({"options": [{"title": "Lembur sampai 01:00 di DOCK-02",
+                                            "actions": [{"type": "change_dock", "dock": "DOCK-02"},
+                                                        {"type": "extend_dock", "until": "01:00"}]}]},
+                              d, [], [], datetime(2026, 9, 9, 19, 42))
+    check("'Unload at DOCK-02' for a DOCK-02 truck is ignored, not a reason to refuse",
+          len(plan["options"]) == 1 and plan["options"][0]["actions"] == [{"type": "extend_dock", "until": "01:00"}])
+    check("'R5' becomes 'aturan #5' and fact ids disappear in Sari's message",
+          planner._short("Budi melebihi 12 jam (R5), stok kurang (F3) sesuai R6", 200)
+          == "Budi melebihi 12 jam (aturan #5), stok kurang aturan #6")
+
+
+def test_short_text_never_cuts_a_word():
+    import planner
+    text = planner._short("Penggantian driver memenuhi aturan jam kerja dan perpanjangan dock", 40)
+    check("Long text is cut at a word, with '…'",
+          text == "Penggantian driver memenuhi aturan jam…")
+
+
+def test_planner_option_must_solve_the_problem():
+    import planner
+    d = {"InboundDelivery": "0080004521", "PlannedGoodsReceipt": "2026-09-09T23:00:00",
+         "DockOpeningTime": "06:00", "DockClosingTime": "22:00", "CarrierContact": "Budi Santoso",
+         "ReceivingDock": "DOCK-02"}
+    raw = {"options": [{"title": "Reschedule ke 23:30",
+                        "actions": [{"type": "reschedule", "time": "2026-09-09T23:30"}]}]}
+    plan = planner.check_plan(raw, d, [], [], __import__("datetime").datetime(2026, 9, 9, 19, 42))
+    check("An option that still lands after the dock closes is refused",
+          not plan["options"] and "saat dock tutup" in plan["rejected"][0]["reason"])
 
 
 # --------------------------------------------------------------- memory ---

@@ -2,20 +2,27 @@
 Runa's memory across restarts.
 
 Without a database, runa-sap keeps everything in memory, and a deploy or a
-crash wipes the SAP records, the dashboard events and the learned notes.
-With DATABASE_URL set (a Postgres connection string), every change is saved
-and loaded again when the app starts.
+crash wipes the SAP records, the dashboard events, the facts, the learned
+rules and the decisions. With a database, every change is saved and loaded
+again when the app starts. Which database is chosen by the settings:
 
-    DATABASE_URL unset    memory only, exactly as before (local tests)
-    DATABASE_URL set      one table, runa_state: one row per collection
+    RUNA_DYNAMO_TABLE set    Amazon DynamoDB (credentials from the usual
+                             AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY /
+                             AWS_REGION settings)
+    DATABASE_URL set         Postgres (e.g. Neon), one table: runa_state
+    neither                  memory only, exactly as before (local tests)
+
+Both databases hold the same thing: one entry per collection ("facts",
+"notebook", ...), the collection written as JSON. DynamoDB items are at most
+400 KB, so a big collection is split into parts.
 
 What is kept (keep_events):
     - the newest 100 messages from the group, whatever they were
     - older messages only if they led to something: an SAP write, a question,
       a handoff, a dock conflict or an undo
     - small talk ("siap bu") is forgotten after 24 hours, even inside the 100
-    SAP records, the change log and the notebook are never trimmed: they are
-    the audit trail.
+    SAP records, the change log, the notebook, the facts and the decisions are
+    never trimmed: they are the audit trail.
 
 If the database can't be read at startup, saving is switched off for that
 run. Otherwise the empty demo data would overwrite what the database holds.
@@ -28,7 +35,7 @@ from datetime import datetime, timedelta, timezone
 RECENT_MESSAGES = 100
 CHATTER_HOURS = 24
 KEYS = ("deliveries", "material_documents", "quality_notifications",
-        "change_log", "events", "notebook")
+        "change_log", "events", "notebook", "facts", "decisions")
 
 
 def keep_events(events: list[dict], now: datetime | None = None) -> list[dict]:
@@ -48,71 +55,166 @@ def keep_events(events: list[dict], now: datetime | None = None) -> list[dict]:
     return kept
 
 
-class Store:
-    def __init__(self, url: str | None = None):
-        self.url = url if url is not None else os.getenv("DATABASE_URL", "")
-        self.enabled = bool(self.url)
-        self.status = "memory only (DATABASE_URL not set)"
-        self._lock = threading.Lock()
+# ================================================================ Postgres
+class PostgresBackend:
+    def __init__(self, url: str):
+        self.url = url
+        self.name = "Postgres"
         self._conn = None
 
     def _connect(self):
         import psycopg
         return psycopg.connect(self.url, connect_timeout=10, autocommit=True)
 
+    def read(self) -> dict[str, str]:
+        with self._connect() as conn:
+            conn.execute("""CREATE TABLE IF NOT EXISTS runa_state (
+                                key     TEXT PRIMARY KEY,
+                                value   TEXT NOT NULL,
+                                updated TIMESTAMPTZ NOT NULL DEFAULT now())""")
+            return dict(conn.execute("SELECT key, value FROM runa_state").fetchall())
+
+    def write(self, rows: dict[str, str]) -> None:
+        """One connection is reused; if the database dropped it (a free
+        database sleeps when idle), reconnect once and try again."""
+        for attempt in (1, 2):
+            try:
+                if self._conn is None or self._conn.closed:
+                    self._conn = self._connect()
+                with self._conn.transaction():
+                    for key, value in rows.items():
+                        self._conn.execute(
+                            """INSERT INTO runa_state (key, value, updated)
+                               VALUES (%s, %s, now())
+                               ON CONFLICT (key) DO UPDATE
+                               SET value = EXCLUDED.value, updated = now()""",
+                            (key, value))
+                return
+            except Exception:
+                try:
+                    if self._conn is not None:
+                        self._conn.close()
+                except Exception:
+                    pass
+                self._conn = None
+                if attempt == 2:
+                    raise
+
+
+# ================================================================ DynamoDB
+class DynamoBackend:
+    """Table with one key: pk (String). For each collection:
+         pk = "facts"      {"parts": 2, "updated": "..."}   which parts to read
+         pk = "facts#0"    {"v": <bytes>}                   the JSON, part 1
+         pk = "facts#1"    {"v": <bytes>}                   the JSON, part 2
+    Parts are written first and the "facts" item last, so a reader never sees
+    a part count for parts that aren't there yet."""
+    PART_BYTES = 350_000                      # DynamoDB's limit is 400 KB per item
+
+    def __init__(self, table: str):
+        import boto3
+        self.region = os.getenv("AWS_REGION") or os.getenv("AWS_DEFAULT_REGION") or "ap-southeast-3"
+        self.table = boto3.resource("dynamodb", region_name=self.region).Table(table)
+        self.name = f"DynamoDB {table} ({self.region})"
+        self.parts: dict[str, int] = {}       # how many parts each key has now
+
+    def _get(self, keys: list[str]) -> dict[str, dict]:
+        """BatchGetItem, 100 keys at a time, retrying what DynamoDB sends back."""
+        found = {}
+        for i in range(0, len(keys), 100):
+            request = {self.table.name: {"Keys": [{"pk": k} for k in keys[i:i + 100]]}}
+            while request:
+                resp = self.table.meta.client.batch_get_item(RequestItems=request)
+                for item in resp["Responses"].get(self.table.name, []):
+                    found[item["pk"]] = item
+                request = resp.get("UnprocessedKeys") or None
+        return found
+
+    def read(self) -> dict[str, str]:
+        heads = self._get(list(KEYS))
+        self.parts = {k: int(heads[k]["parts"]) for k in heads}
+        names = [f"{k}#{i}" for k, n in self.parts.items() for i in range(n)]
+        parts = self._get(names) if names else {}
+        rows = {}
+        for key, n in self.parts.items():
+            chunks = [parts.get(f"{key}#{i}") for i in range(n)]
+            if all(chunks):
+                rows[key] = b"".join(bytes(c["v"]) for c in chunks).decode("utf-8")
+        return rows
+
+    def write(self, rows: dict[str, str]) -> None:
+        now = datetime.now(timezone.utc).isoformat(timespec="seconds")
+        heads, stale = [], []
+        with self.table.batch_writer(overwrite_by_pkeys=["pk"]) as batch:
+            for key, value in rows.items():
+                data = value.encode("utf-8")
+                chunks = [data[i:i + self.PART_BYTES]
+                          for i in range(0, len(data), self.PART_BYTES)] or [b""]
+                for i, chunk in enumerate(chunks):
+                    batch.put_item(Item={"pk": f"{key}#{i}", "v": chunk})
+                heads.append({"pk": key, "parts": len(chunks), "updated": now})
+                stale += [f"{key}#{i}" for i in range(len(chunks), self.parts.get(key, 0))]
+                self.parts[key] = len(chunks)
+        with self.table.batch_writer(overwrite_by_pkeys=["pk"]) as batch:
+            for head in heads:
+                batch.put_item(Item=head)
+        if stale:                                 # a collection got smaller
+            with self.table.batch_writer() as batch:
+                for pk in stale:
+                    batch.delete_item(Key={"pk": pk})
+
+
+# =================================================================== Store
+class Store:
+    def __init__(self):
+        table = os.getenv("RUNA_DYNAMO_TABLE", "")
+        url = os.getenv("DATABASE_URL", "")
+        self.backend = None
+        self.status = "memory only (no database set)"
+        try:
+            if table:
+                self.backend = DynamoBackend(table)
+            elif url:
+                self.backend = PostgresBackend(url)
+        except Exception as e:                       # e.g. boto3 missing
+            self.status = f"DATABASE UNAVAILABLE ({type(e).__name__}), memory only"
+            print(f"[store] {self.status}: {e}")
+        self.enabled = self.backend is not None
+        self._saved: dict[str, str] = {}             # what the database holds now
+        self._lock = threading.Lock()
+
     def load(self) -> dict | None:
         """Everything saved, or None when there's nothing (or no database)."""
         if not self.enabled:
             return None
         try:
-            with self._connect() as conn:
-                conn.execute("""CREATE TABLE IF NOT EXISTS runa_state (
-                                    key     TEXT PRIMARY KEY,
-                                    value   TEXT NOT NULL,
-                                    updated TIMESTAMPTZ NOT NULL DEFAULT now())""")
-                rows = conn.execute("SELECT key, value FROM runa_state").fetchall()
+            rows = self.backend.read()
         except Exception as e:
             self.enabled = False
-            self.status = f"DATABASE UNREACHABLE, saving off for this run: {type(e).__name__}"
+            self.status = (f"{self.backend.name} UNREACHABLE, saving off for this run: "
+                           f"{type(e).__name__}")
             print(f"[store] {self.status}: {e}")
             return None
-        saved = {k: json.loads(v) for k, v in rows if k in KEYS}
-        self.status = "database" + ("" if saved else " (empty: starting from the demo data)")
-        print(f"[store] {self.status}: {', '.join(saved) or 'nothing saved yet'}")
-        return saved or None
+        rows = {k: v for k, v in rows.items() if k in KEYS}
+        self._saved = dict(rows)
+        self.status = self.backend.name + ("" if rows else " (empty: starting from the demo data)")
+        print(f"[store] {self.status}: {', '.join(rows) or 'nothing saved yet'}")
+        return {k: json.loads(v) for k, v in rows.items()} or None
 
     def save(self, snapshot) -> None:
-        """Write the current state. `snapshot` is a function returning it,
-        called inside the lock, so the last save always holds the newest state.
-        One connection is reused; if the database dropped it (a free database
-        sleeps when idle), Runa reconnects once and tries again."""
+        """Write what changed. `snapshot` is a function returning the current
+        state, called inside the lock, so the last save always holds the
+        newest state. Unchanged collections are not written again."""
         if not self.enabled:
             return
         with self._lock:
             data = snapshot()
-            rows = [(k, json.dumps(data[k], ensure_ascii=False)) for k in KEYS]
-            for attempt in (1, 2):
-                try:
-                    if self._conn is None or self._conn.closed:
-                        self._conn = self._connect()
-                    with self._conn.transaction():
-                        for key, value in rows:
-                            self._conn.execute(
-                                """INSERT INTO runa_state (key, value, updated)
-                                   VALUES (%s, %s, now())
-                                   ON CONFLICT (key) DO UPDATE
-                                   SET value = EXCLUDED.value, updated = now()""",
-                                (key, value))
-                    return
-                except Exception as e:
-                    self._close()
-                    if attempt == 2:
-                        print(f"[store] save failed ({type(e).__name__}): {e}")
-
-    def _close(self):
-        try:
-            if self._conn is not None:
-                self._conn.close()
-        except Exception:
-            pass
-        self._conn = None
+            rows = {k: json.dumps(data[k], ensure_ascii=False) for k in KEYS}
+            changed = {k: v for k, v in rows.items() if self._saved.get(k) != v}
+            if not changed:
+                return
+            try:
+                self.backend.write(changed)
+                self._saved.update(changed)
+            except Exception as e:
+                print(f"[store] save failed ({type(e).__name__}): {e}")

@@ -1,0 +1,349 @@
+{
+ "proposed": [
+  {
+   "rule": "Rudi (CV Mitra Kemasan) is not permitted to drive after 20:00 under company policy.",
+   "kind": "stated",
+   "why": "Both Rudi and supervisor Sari confirmed this as a standing company rule on two separate days.",
+   "evidence": [
+    {
+     "fact": 5,
+     "ref": "h018",
+     "at": "2026-08-26T16:06",
+     "sender": "Rudi",
+     "text": "Sekitar jam 9 malam bu. Tapi dari kantor saya gak boleh nyetir lewat jam 8 malam"
+    },
+    {
+     "fact": 58,
+     "ref": "h149",
+     "at": "2026-09-03T15:32",
+     "sender": "Sari",
+     "text": "Jam 6 berangkat sampai jam 8 malam ya. Pak Rudi kan gak boleh nyetir malam"
+    }
+   ]
+  },
+  {
+   "rule": "All drivers have a maximum working day of 12 hours including rest; if exceeded, the driver must be replaced.",
+   "kind": "stated",
+   "why": "Supervisor Sari stated this as a formal rule on 2026-08-27.",
+   "evidence": [
+    {
+     "fact": 14,
+     "ref": "h040",
+     "at": "2026-08-27T16:06",
+     "sender": "Sari",
+     "text": "Supir maksimal 12 jam kerja ya semua, termasuk istirahat. Kalau lewat, ganti supir"
+    }
+   ]
+  },
+  {
+   "rule": "When instant noodle stock FG-4471 falls below 1 day, the shipment must be received the same day, even at night.",
+   "kind": "stated",
+   "why": "Supervisor Sari explicitly stated this stock urgency rule on 2026-08-27.",
+   "evidence": [
+    {
+     "fact": 10,
+     "ref": "h031",
+     "at": "2026-08-27T10:25",
+     "sender": "Sari",
+     "text": "Waduh. Kalau stok mie di bawah 1 hari, kiriman mie harus diterima hari itu juga ya, walaupun malam"
+    }
+   ]
+  },
+  {
+   "rule": "Overtime is limited to a maximum of 3 hours.",
+   "kind": "stated",
+   "why": "Supervisor Sari stated this as a standing rule on 2026-08-27.",
+   "evidence": [
+    {
+     "fact": 18,
+     "ref": "h045",
+     "at": "2026-08-27T17:26",
+     "sender": "Sari",
+     "text": "Ok 3 orang cukup. Lembur maksimal 3 jam ya pak"
+    }
+   ]
+  },
+  {
+   "rule": "A minimum of 3 crew members is required to unload a full truck.",
+   "kind": "stated",
+   "why": "Supervisor Sari stated this minimum crew requirement on 2026-09-01.",
+   "evidence": [
+    {
+     "fact": 44,
+     "ref": "h114",
+     "at": "2026-09-01T17:32",
+     "sender": "Sari",
+     "text": "2 orang gak cukup buat bongkar truk penuh malam-malam, minimal 3. Ya sudah truk masuk area tunggu, bongkar jam 6 pagi paling awal"
+    }
+   ]
+  },
+  {
+   "rule": "With only 1 forklift operational, unloading 240 cartons takes 2 hours instead of the usual 1 hour, and trucks must be spaced 2 hours apart.",
+   "kind": "stated",
+   "why": "Hendra stated the doubled unloading time and Sari set the 2-hour dock spacing rule when down to one forklift.",
+   "evidence": [
+    {
+     "fact": 31,
+     "ref": "h082",
+     "at": "2026-08-31T06:03",
+     "sender": "Hendra",
+     "text": "Iya bu, bongkar jadi 2 kali lebih lama. 240 karton biasanya 1 jam jadi 2 jam"
+    },
+    {
+     "fact": 32,
+     "ref": "h083",
+     "at": "2026-08-31T06:05",
+     "sender": "Sari",
+     "text": "Ok, jadwal bongkar dikasih jarak 2 jam per truk ya"
+    }
+   ]
+  },
+  {
+   "rule": "Dock unloading hours are 06:00–22:00; trucks arriving after 22:00 must wait until 06:00 the next morning.",
+   "kind": "stated",
+   "why": "Sari confirmed dock hours and the late-arrival policy on two separate occasions.",
+   "evidence": [
+    {
+     "fact": 35,
+     "ref": "h096",
+     "at": "2026-08-31T19:32",
+     "sender": "Sari",
+     "text": "Dock tutup jam 10 malam. Truk parkir di area tunggu aja ya pak, bongkar besok jam 6"
+    },
+    {
+     "fact": 69,
+     "ref": "h179",
+     "at": "2026-09-06T18:30",
+     "sender": "Sari",
+     "text": "Info besok: mulai senin jam bongkar tetap 06.00-22.00"
+    }
+   ]
+  },
+  {
+   "rule": "Every Friday from 11:30 to 13:00, the dock unloading crew drops to 1 person for Friday prayers.",
+   "kind": "stated",
+   "why": "Hendra stated this as a standing every-Friday rule, also confirmed by pattern on 2026-08-28 and 2026-09-04.",
+   "evidence": [
+    {
+     "fact": 64,
+     "ref": "h158",
+     "at": "2026-09-04T10:45",
+     "sender": "Hendra",
+     "text": "Bu ingat ya jumatan, jam 11.30 sampai 1 tim tinggal 1 orang"
+    }
+   ]
+  },
+  {
+   "rule": "Every Friday afternoon, tol Cikampek is always heavily congested, causing approximately 2-hour delays.",
+   "kind": "stated",
+   "why": "Sari and Budi both explicitly stated this as a regular Friday pattern, also observed on 2026-08-27, 2026-08-28, and 2026-09-04.",
+   "evidence": [
+    {
+     "fact": 23,
+     "ref": "h063",
+     "at": "2026-08-28T17:47",
+     "sender": "Sari",
+     "text": "Iya tiap jumat sore memang begitu. Masih sebelum dock tutup, aman"
+    },
+    {
+     "fact": 66,
+     "ref": "h163",
+     "at": "2026-09-04T17:30",
+     "sender": "Budi",
+     "text": "Jumat sore macet lagi bu, tol Cikampek. Estimasi jam 8 malam"
+    }
+   ]
+  },
+  {
+   "rule": "Saturday is always a half-day shift at Cikarang DC warehouse.",
+   "kind": "stated",
+   "why": "Supervisor Sari stated Saturday is always a half-day shift.",
+   "evidence": [
+    {
+     "fact": 25,
+     "ref": "h069",
+     "at": "2026-08-29T07:05",
+     "sender": "Sari",
+     "text": "Ok pak, sabtu memang setengah hari"
+    }
+   ]
+  },
+  {
+   "rule": "On Saturdays, dock unloading crew is only 3 people (reduced from the standard 5).",
+   "kind": "pattern",
+   "why": "Saturday crew of 3 was observed on both 2026-08-29 and 2026-09-05.",
+   "evidence": [
+    {
+     "fact": 24,
+     "ref": "h068",
+     "at": "2026-08-29T07:00",
+     "sender": "Hendra",
+     "text": "Sabtu tim 3 orang aja bu"
+    },
+    {
+     "fact": 67,
+     "ref": "h167",
+     "at": "2026-09-05T07:00",
+     "sender": "Hendra",
+     "text": "Sabtu tim 3 orang"
+    }
+   ]
+  },
+  {
+   "rule": "On weekday mornings (Monday–Friday), the standard dock unloading crew is 5 people.",
+   "kind": "pattern",
+   "why": "A crew of 5 was consistently recorded on multiple weekday mornings across the observation period.",
+   "evidence": [
+    {
+     "fact": 1,
+     "ref": "h001",
+     "at": "2026-08-26T06:12",
+     "sender": "Hendra",
+     "text": "Pagi semua, tim bongkar shift pagi 5 orang lengkap"
+    },
+    {
+     "fact": 8,
+     "ref": "h024",
+     "at": "2026-08-27T06:10",
+     "sender": "Hendra",
+     "text": "Tim pagi 5 orang hadir"
+    },
+    {
+     "fact": 19,
+     "ref": "h049",
+     "at": "2026-08-28T06:05",
+     "sender": "Hendra",
+     "text": "Pagi, tim 5 orang"
+    },
+    {
+     "fact": 29,
+     "ref": "h080",
+     "at": "2026-08-31T06:00",
+     "sender": "Hendra",
+     "text": "Pagi, tim 5 orang. Tapi forklift 2 mogok bu, aki soak"
+    },
+    {
+     "fact": 38,
+     "ref": "h101",
+     "at": "2026-09-01T06:05",
+     "sender": "Hendra",
+     "text": "Pagi, tim 5 orang, DO 4514 langsung bongkar"
+    },
+    {
+     "fact": 45,
+     "ref": "h119",
+     "at": "2026-09-02T06:00",
+     "sender": "Hendra",
+     "text": "Tim 5 orang, DO 4518 duluan bongkar"
+    },
+    {
+     "fact": 59,
+     "ref": "h153",
+     "at": "2026-09-04T06:05",
+     "sender": "Hendra",
+     "text": "Pagi, tim 5 orang lengkap, kedua forklift jalan"
+    },
+    {
+     "fact": 72,
+     "ref": "h182",
+     "at": "2026-09-07T06:05",
+     "sender": "Hendra",
+     "text": "Pagi, tim 5 orang"
+    },
+    {
+     "fact": 80,
+     "ref": "h203",
+     "at": "2026-09-08T06:00",
+     "sender": "Hendra",
+     "text": "Pagi, tim 5 orang"
+    }
+   ]
+  },
+  {
+   "rule": "When a driver exceeds or is close to the 12-hour limit, Agus from the Cikampek pool is the designated relief driver who takes over at a rest area or toll km marker.",
+   "kind": "pattern",
+   "why": "Agus took over from Budi at a Cikampek-area handover point on both 2026-08-27 and 2026-09-07.",
+   "evidence": [
+    {
+     "fact": 13,
+     "ref": "h039",
+     "at": "2026-08-27T16:05",
+     "sender": "Agus",
+     "text": "Bisa bu, saya dari pool Cikampek jalan sekarang"
+    },
+    {
+     "fact": 15,
+     "ref": "h042",
+     "at": "2026-08-27T17:10",
+     "sender": "Agus",
+     "text": "Sudah ganti supir, DO 4497 saya yang bawa"
+    },
+    {
+     "fact": 76,
+     "ref": "h193",
+     "at": "2026-09-07T15:50",
+     "sender": "Agus",
+     "text": "Bisa bu, saya jalan dari pool, ketemu pak Budi di KM 39"
+    },
+    {
+     "fact": 79,
+     "ref": "h199",
+     "at": "2026-09-07T17:05",
+     "sender": "Agus",
+     "text": "Sudah ganti supir di KM 39, DO 4540 saya bawa"
+    }
+   ]
+  },
+  {
+   "rule": "Dock 1 has no roof and cannot be used for unloading during rain; redirect trucks to another dock when it is raining at Cikarang DC.",
+   "kind": "pattern",
+   "why": "On at least three separate days (2026-08-26, 2026-09-02, 2026-09-08) rain caused dock 1 to be wet and unusable for unloading.",
+   "evidence": [
+    {
+     "fact": 2,
+     "ref": "h007",
+     "at": "2026-08-26T09:20",
+     "sender": "Hendra",
+     "text": "Hujan deras nih bu, dock 1 kena air semua"
+    },
+    {
+     "fact": 3,
+     "ref": "h007",
+     "at": "2026-08-26T09:20",
+     "sender": "Hendra",
+     "text": "Hujan deras nih bu, dock 1 kena air semua"
+    },
+    {
+     "fact": 47,
+     "ref": "h123",
+     "at": "2026-09-02T08:30",
+     "sender": "Hendra",
+     "text": "Bu hujan lagi, dock 1 basah semua"
+    },
+    {
+     "fact": 48,
+     "ref": "h123",
+     "at": "2026-09-02T08:30",
+     "sender": "Hendra",
+     "text": "Bu hujan lagi, dock 1 basah semua"
+    },
+    {
+     "fact": 81,
+     "ref": "h205",
+     "at": "2026-09-08T08:00",
+     "sender": "Hendra",
+     "text": "Hujan deras bu"
+    },
+    {
+     "fact": 82,
+     "ref": "h206",
+     "at": "2026-09-08T08:01",
+     "sender": "Sari",
+     "text": "Karton masuk dock 2 ya pak, dock 1 gak ada atap"
+    }
+   ],
+   "second_look": true
+  }
+ ],
+ "dropped": []
+}

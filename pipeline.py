@@ -11,6 +11,7 @@ Safety rule: Runa never crashes and never guesses. When something is wrong,
 unclear, or outside its forms, it says so and hands over to a human.
 """
 from dataclasses import dataclass, field
+from uuid import uuid4
 from datetime import datetime, timedelta, timezone
 
 import agents
@@ -37,6 +38,8 @@ STEP_NAMES = {
     "transactor" : "Transactor",
     "conflict" : "Conflict check", 
     "notebook" : "Notebook",
+    "planner" : "Planner",
+    "reviewer" : "Reviewer",
 }
 WIB = timezone(timedelta(hours=7))
 
@@ -58,7 +61,8 @@ class PendingDecision:
     """Runa escalated a conflict with options and is waiting for a choice."""
     delivery_id: str
     kind: str          # "LATE" or "EARLY"
-    options: str
+    options: str       # the message the supervisor saw
+    plan: dict | None = None   # the Planner's checked options; None = the fixed a/b
 
 
 @dataclass
@@ -109,6 +113,11 @@ class Runa:
         self.report = report
         self.authority = authority or Authority()
         self._sender_id = None
+        self._decider = None
+        # Telegram: post the SAP confirmation first, then think about options
+        # (bot.py turns this on). Tests and replays plan straight away.
+        self.defer_planning = False
+        self._deferred = None
         self.conversation: list[str] = []
         self.pending: dict = {}   # person (Telegram ID, or name) -> open questions
         self.pending_decision: PendingDecision | None = None
@@ -139,6 +148,38 @@ class Runa:
         return replies
 
 
+    # ================================================================ facts
+    def observe(self, sender: str, message: str, at: datetime | None = None) -> list[dict]:
+        """Side job, run AFTER the reply has gone out: read the constraints in
+        this message (who drives since when, crew, forklifts, stock, rain)
+        into the fact list. Never raises and never delays a reply: if the AI
+        or runa-sap is down, Runa just doesn't learn from this message."""
+        import facts
+        if facts.is_chatter(message):
+            return []
+        at = at or now()
+        try:
+            active = [f for f in facts.get_facts() if facts.is_active(f, at)]
+            msg = {"id": f"live-{uuid4().hex[:8]}", "sender": sender, "text": message,
+                   "at": at.isoformat(timespec="minutes")}
+            earlier = self.conversation[-6:-1] if self.conversation[-1:] == [
+                f"{sender}: {message}"] else self.conversation[-5:]
+            new, ended = facts.read_facts([msg], active, agents.notes_for(sender, message),
+                                          context=earlier)
+            ended_ids = {e["id"] for e in ended}
+            for f in new:                          # same thing, newer news
+                ended += [{"id": i, "at": f["source"]["at"], "ref": f["source"]["ref"]}
+                          for i in facts.superseded(f, active) if i not in ended_ids]
+                ended_ids = {e["id"] for e in ended}
+            if new or ended:
+                new = facts.save_facts(new, ended)
+            for f in new:
+                self.trace.log("facts", f"[{f['type']}] {f['subject']}: {f['statement']}")
+            return new
+        except Exception as e:
+            print(f"[facts] skipped: {type(e).__name__}: {e}")
+            return []
+
     def _who(self, sender: str):
         return self._sender_id if self._sender_id is not None else sender
 
@@ -161,6 +202,7 @@ class Runa:
         #    Anyone else's "b" is just a message — it can't trigger the option.
         if self.pending_decision:
             if self.authority.is_supervisor(sender, self._sender_id):
+                self._decider = sender
                 answered = self._decide(message)
                 if answered is not None:
                     return answered
@@ -494,16 +536,102 @@ class Runa:
 
         # Unprompted: does the new time break anything else?
         conflict = agents.check_conflict(updated)
-        if conflict:
-            ckind, body = conflict
-            message = f"{self.authority.mention()} {body}"
+        if conflict and self.defer_planning and conflict[0] == "LATE":
+            self._deferred = (updated, conflict)
+            notice = "⏳ Jadwal ini bentrok dengan jam dock. Runa menyusun opsi untuk supervisor…"
+            self.trace.log("agent", notice)
+            out.append(notice)
+        elif conflict:
             self.trace.log("conflict",
-                           f"New time conflicts with dock hours ({ckind}) — "
+                           f"New time conflicts with dock hours ({conflict[0]}) — "
                            f"surfacing to a human unprompted")
+            message = self._escalate(updated, *conflict)
             self.trace.log("agent", message)
             out.append(message)
-            self.pending_decision = PendingDecision(did, ckind, message)
         return out
+
+    def finish_escalation(self) -> list[str]:
+        """Telegram only: the planning that handle() put off so the driver
+        got his SAP confirmation at once. Never raises."""
+        if not self._deferred:
+            return []
+        delivery, (kind, fixed) = self._deferred
+        self._deferred = None
+        try:
+            self.trace.log("conflict", f"New time conflicts with dock hours ({kind}) — "
+                                       f"surfacing to a human unprompted")
+            message = self._escalate(delivery, kind, fixed)
+        except Exception as e:                    # never lose the escalation
+            self.trace.log("planner", f"Escalation failed ({type(e).__name__})")
+            message = f"{self.authority.mention()} {fixed}"
+            self.pending_decision = PendingDecision(delivery["InboundDelivery"], kind, message)
+        self.trace.log("agent", message)
+        if self.report:
+            agents.report_event({"ts": datetime.now(WIB).strftime("%H:%M"), "sender": "Runa",
+                                 "text": message, "decision": "conflict",
+                                 "resolved": delivery["InboundDelivery"],
+                                 "note": "New time conflicts with dock hours"})
+        return [message]
+
+    def _escalate(self, delivery: dict, kind: str, fixed: str) -> str:
+        """Open a decision for a supervisor. For a late truck, the Planner
+        builds options from the facts and approved rules; its options must
+        pass the code checks. If the Planner fails or no option survives,
+        the fixed a/b options are used, so an escalation is never lost."""
+        import facts
+        import planner
+        did = delivery["InboundDelivery"]
+        plan = None
+        if kind == "LATE":
+            at = now()
+            eta = delivery["PlannedGoodsReceipt"].split("T")[1][:5]
+            problem = (f"DO {did} perkiraan tiba {eta}, tapi {delivery['ReceivingDock']} "
+                       f"tutup {delivery['DockClosingTime']}.")
+            try:
+                known = [f for f in facts.get_facts() if facts.is_active(f, at)]
+                rules = [{"id": r["id"], "text": r["text"]} for r in agents.approved_rules()]
+                raw = planner.make_plan(problem, delivery, known, rules, at)
+                plan = planner.check_plan(raw, delivery, known, rules, at)
+                self.trace.log("planner", f"{len(plan['options'])} options passed the code checks")
+                if plan["options"]:
+                    try:                          # the second pair of eyes
+                        review = planner.review_plan(plan, problem, delivery, known, rules, at)
+                        plan = planner.apply_review(plan, review, known, rules)
+                        self.trace.log("reviewer", f"{len(plan['options'])} options left after "
+                                                   f"the review, {len(plan['warnings'])} warnings")
+                    except Exception as e:
+                        self.trace.log("reviewer", f"Reviewer unavailable ({type(e).__name__}) "
+                                                   f"— options keep the Planner's own checks")
+                for r in plan["rejected"]:
+                    self.trace.log("planner", f"Rejected ({r['by']}): {r['title']} — {r['reason']}")
+                if not plan["options"]:
+                    # Runa looked and found NO option that keeps every rule.
+                    # Say that plainly; the supervisor decides, knowing why.
+                    self.trace.log("planner", "No option keeps every rule — the supervisor decides")
+                    reasons = [f"✗ {r['title']}: {r['reason']}" for r in sorted(
+                        (r for r in plan["rejected"] if r.get("show")),
+                        key=lambda r: r.get("rank", 3))[:3]]
+                    message = "\n".join(
+                        [f"⚠️ {problem}",
+                         "Runa tidak menemukan opsi yang memenuhi semua aturan:"] + reasons +
+                        [f"{self.authority.mention()} mohon keputusan Ibu/Bapak, misalnya "
+                         f"menambah kru lembur. Kalau tetap memakai opsi biasa: "
+                         f"(a) perpanjang shift, (b) reschedule besok pagi "
+                         f"{delivery.get('DockOpeningTime') or '06:00'}."])
+                    self.pending_decision = PendingDecision(did, kind, message)
+                    return message
+            except Exception as e:
+                self.trace.log("planner", f"Planner unavailable ({type(e).__name__}) — "
+                                          f"using the fixed a/b")
+                plan = None
+            if plan:
+                message = planner.describe(plan, problem, delivery, known, rules, at,
+                                           self.authority.mention())
+                self.pending_decision = PendingDecision(did, kind, message, plan)
+                return message
+        message = f"{self.authority.mention()} {fixed}"
+        self.pending_decision = PendingDecision(did, kind, message)
+        return message
 
     def _drop_stale_questions(self, did: str, kind: str):
         """This event is going into SAP now. Any OTHER open question about the
@@ -529,8 +657,9 @@ class Runa:
     def _decide(self, message: str) -> list[str] | None:
         """Someone may be answering the open escalation. None = they weren't."""
         pd = self.pending_decision
+        letters = [o["label"] for o in pd.plan["options"]] if pd.plan else ["a", "b"]
         result = agents.interpret_decision(message, pd.options)
-        if result.get("choice") not in ("a", "b"):
+        if result.get("choice") not in letters:
             self.trace.log("resolver", "Not an answer to the open escalation — continuing")
             return None
 
@@ -541,9 +670,20 @@ class Runa:
                     for d in agents.get_open_deliveries()}[pd.delivery_id]
         before = {k: delivery.get(k) for k in
                   ("PlannedGoodsReceipt", "Status", "DockClosingTime",
-                   "ResolutionNote", "SourceMessageRef")}
-        confirmation = agents.apply_decision(
-            delivery, pd.kind, result["choice"], f"telegram:{len(self.conversation)}")
+                   "ResolutionNote", "SourceMessageRef", "CarrierContact",
+                   "ReceivingDock")}
+        ref = f"telegram:{len(self.conversation)}"
+        if pd.plan:
+            import planner
+            option = next(o for o in pd.plan["options"] if o["label"] == result["choice"])
+            confirmation = planner.apply_option(delivery, option, ref)
+            agents.log_decision({"delivery": pd.delivery_id, "kind": pd.kind,
+                                 "options": pd.plan["options"],
+                                 "rejected": pd.plan["rejected"],
+                                 "chosen": result["choice"], "by": self._decider,
+                                 "message": message})
+        else:
+            confirmation = agents.apply_decision(delivery, pd.kind, result["choice"], ref)
         self._wrote(f"Executed option {result['choice']}", pd.delivery_id)
         self.undo_stack.append(Undo(
             "restore", pd.delivery_id,
@@ -620,13 +760,45 @@ class Runa:
         self.trace.log("notebook", f"{sender} removed note #{note_id}")
         return [f"Catatan #{note_id} tidak dipakai lagi."]
 
+    def learn_rules(self, sender: str, sender_id=None) -> list[str]:
+        """/pelajari — a supervisor asks Runa to look for rules in what it
+        has read so far. Rules are only PROPOSED; /setuju makes them count."""
+        import facts
+        import rules
+        if not self.authority.is_supervisor(sender, sender_id):
+            return ["Maaf, hanya supervisor yang bisa meminta Runa belajar aturan."]
+        known = facts.get_facts()[-300:]
+        notebook = [n["text"] for n in agents.get_notebook(fresh=True)]
+        kept, dropped = rules.propose_rules(known, notebook)
+        proposed = []
+        for r in kept:
+            note = agents.add_note(r["rule"], status="proposed", source="learned",
+                                   by="Runa", kind="rule", evidence=r["evidence"])
+            if note:
+                proposed.append(note)
+        self.trace.log("notebook", f"Learned {len(proposed)} rules "
+                                   f"({len(dropped)} dropped by the checks)")
+        if not proposed:
+            return ["Belum ada aturan baru yang cukup kuat buktinya."]
+        lines = [f"📒 Runa mengusulkan {len(proposed)} aturan dari percakapan:"]
+        for n in proposed:
+            seen = ", ".join(e["at"][5:16].replace("T", " ") for e in n["evidence"][:3])
+            lines.append(f"#{n['id']} {n['text']}\n   (dari pesan {seen})")
+        lines.append(f"{self.authority.mention()} balas /setuju <nomor> atau /tolak <nomor>.")
+        return ["\n".join(lines)]
+
     def notebook_text(self) -> list[str]:
         """/catatan — show what Runa knows, and what is waiting for approval."""
         notes = agents.get_notebook(fresh=True)
         used = [n for n in notes if n["status"] == "approved"]
         waiting = [n for n in notes if n["status"] == "proposed"]
         lines = ["📒 Buku catatan Runa"]
-        lines += [f"#{n['id']} {n['text']}" for n in used] or ["(kosong)"]
+        lines += [f"#{n['id']} {n['text']}" for n in used
+                  if n.get("kind", "note") == "note"] or ["(kosong)"]
+        rules_used = [n for n in used if n.get("kind") == "rule"]
+        if rules_used:
+            lines += ["", "Aturan gudang (dipakai saat menyusun opsi):"]
+            lines += [f"#{n['id']} {n['text']}" for n in rules_used]
         if waiting:
             lines += ["", "Menunggu persetujuan supervisor:"]
             lines += [f"#{n['id']} {n['text']}  →  /setuju {n['id']} atau /tolak {n['id']}"
@@ -674,11 +846,8 @@ class Runa:
         # Putting a time back can re-create a dock conflict. Check, like after any write.
         conflict = agents.check_conflict(restored) if restored else None
         if conflict:
-            ckind, body = conflict
-            message = f"{self.authority.mention()} {body}"
-            self.trace.log("conflict", f"After undo the dock conflict is back ({ckind})")
-            out.append(message)
-            self.pending_decision = PendingDecision(last.delivery_id, ckind, message)
+            self.trace.log("conflict", f"After undo the dock conflict is back ({conflict[0]})")
+            out.append(self._escalate(restored, *conflict))
 
         if self.report:
             agents.report_event({
@@ -749,10 +918,12 @@ class Runa:
         # 4. Runa raised a dock conflict on its own? That's a second event.
         for i, step in enumerate(steps):
             if step["actor"] == "conflict":
+                posted = next((s["summary"] for s in steps[i + 1:] if s["actor"] == "agent"),
+                              step["summary"])          # the message Runa posted
                 agents.report_event({
                     "ts": datetime.now(WIB).strftime("%H:%M"),
                     "sender": "Runa",
-                    "text": steps[i + 1]["summary"],   # the message Runa posted
+                    "text": posted,
                     "decision": "conflict",
                     "resolved": delivery,
                     "note": step["summary"],

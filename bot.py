@@ -31,6 +31,7 @@ logging.basicConfig(level=logging.WARNING)
 
 trace = Trace()
 sessions: dict[int, Runa] = {}
+background: set = set()          # side jobs still running (kept so they finish)
 ADMIN_REFRESH_SECONDS = 300
 
 
@@ -38,7 +39,8 @@ def session(chat_id: int) -> Runa:
     if chat_id not in sessions:
         # In Telegram, supervisors come ONLY from the group's admin list —
         # never from a name, which anyone could share.
-                sessions[chat_id] = Runa(trace, Authority(names=[]), report=True)
+        sessions[chat_id] = Runa(trace, Authority(names=[]), report=True)
+        sessions[chat_id].defer_planning = True     # confirm first, then plan
     return sessions[chat_id]
 
 
@@ -78,6 +80,16 @@ async def on_message(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     replies = await asyncio.to_thread(runa.handle, sender, text, user.id)
     for reply in replies:
         await update.message.reply_text(reply)
+
+    # A late truck: the driver has his confirmation; now build the options.
+    for reply in await asyncio.to_thread(runa.finish_escalation):
+        await update.message.reply_text(reply)
+
+    # After replying: read the constraints in this message (facts.py) in the
+    # background, so the next message isn't kept waiting.
+    task = asyncio.create_task(asyncio.to_thread(runa.observe, sender, text))
+    background.add(task)
+    task.add_done_callback(background.discard)
 
 
 async def on_status(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
@@ -130,6 +142,9 @@ async def _notebook_command(update: Update, ctx: ContextTypes.DEFAULT_TYPE,
     try:
         if action == "list":
             replies = await asyncio.to_thread(runa.notebook_text)
+        elif action == "learn":
+            await update.message.reply_text("Sebentar, Runa membaca ulang catatan faktanya…")
+            replies = await asyncio.to_thread(runa.learn_rules, name, user.id)
         elif action == "teach":
             replies = await asyncio.to_thread(runa.teach, name, " ".join(ctx.args), user.id)
         else:
@@ -169,6 +184,10 @@ async def on_catatan(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     await _notebook_command(update, ctx, "list")
 
 
+async def on_pelajari(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    await _notebook_command(update, ctx, "learn")
+
+
 def main():
     if not TELEGRAM_TOKEN:
         raise SystemExit("TELEGRAM_TOKEN missing from .env")
@@ -182,6 +201,7 @@ def main():
     app.add_handler(CommandHandler("tolak", on_tolak))
     app.add_handler(CommandHandler("hapus", on_hapus))
     app.add_handler(CommandHandler("catatan", on_catatan))
+    app.add_handler(CommandHandler("pelajari", on_pelajari))
     app.add_handler(MessageHandler((filters.TEXT | filters.CAPTION) & ~filters.COMMAND,
                                    on_message))
 

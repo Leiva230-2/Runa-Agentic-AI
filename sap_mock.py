@@ -61,6 +61,8 @@ QUALITY_NOTIFICATIONS: list[dict] = []
 CHANGE_LOG: list[dict] = []
 RUNA_EVENTS: list[dict] = []
 NOTEBOOK: list[dict] = []      # Runa's notebook (not SAP — Runa's own memory)
+FACTS: list[dict] = []         # what Runa read from the chat about constraints
+DECISIONS: list[dict] = []     # options the Planner offered, and what a human chose
 
 
 class DeliveryPatch(BaseModel):
@@ -70,6 +72,11 @@ class DeliveryPatch(BaseModel):
     SourceMessageRef: str | None = None
     DockClosingTime: str | None = None
     ResolutionNote: str | None = None
+    # Set by a supervisor's choice from the Planner. In real S/4HANA the
+    # carrier and the dock live elsewhere (partner functions, EWM); the mock
+    # keeps them on the delivery so the demo shows one record.
+    CarrierContact: str | None = None
+    ReceivingDock: str | None = None
 
 
 class QualityNotification(BaseModel):
@@ -239,6 +246,8 @@ class NoteIn(BaseModel):
     status: str = "proposed"       # Runa proposes; a supervisor's own note is approved
     source: str = "learned"        # seed / supervisor / learned
     by: str = "Runa"
+    kind: str = "note"             # note: who is who / rule: a constraint for planning
+    evidence: list[dict] = []      # the chat messages a learned rule came from
 
 
 class NoteReview(BaseModel):
@@ -263,7 +272,8 @@ seed_notebook()
 STORE = Store()
 COLLECTIONS = {"deliveries": DB, "material_documents": MATERIAL_DOCUMENTS,
                "quality_notifications": QUALITY_NOTIFICATIONS,
-               "change_log": CHANGE_LOG, "events": RUNA_EVENTS, "notebook": NOTEBOOK}
+               "change_log": CHANGE_LOG, "events": RUNA_EVENTS, "notebook": NOTEBOOK,
+               "facts": FACTS, "decisions": DECISIONS}
 
 
 def snapshot() -> dict:
@@ -297,13 +307,16 @@ def add_note(note: NoteIn):
     text = " ".join(note.text.split())
     if not text or len(text) > 300:
         raise HTTPException(422, "A note must be 1–300 characters")
+    if note.kind not in ("note", "rule"):
+        raise HTTPException(422, "kind is note or rule")
     if note.status not in ("proposed", "approved"):
         raise HTTPException(422, "A new note is either proposed or approved")
     if any(n["text"].lower() == text.lower() and n["status"] in ("proposed", "approved")
            for n in NOTEBOOK):
         raise HTTPException(409, "The notebook already has this note")
     record = {"id": len(NOTEBOOK) + 1, "text": text, "status": note.status,
-              "source": note.source, "by": note.by,
+              "source": note.source, "by": note.by, "kind": note.kind,
+              "evidence": note.evidence[:10],
               "reviewed_by": note.by if note.status == "approved" else None,
               "created": datetime.now().isoformat(timespec="seconds")}
     NOTEBOOK.append(record)
@@ -322,6 +335,53 @@ def review_note(note_id: int, review: NoteReview):
     return note
 
 
+# --------------------------------------------------------------------- facts
+# Not part of SAP. Constraints Runa read from the chat (facts.py): who has
+# been driving since when, how many crew, which forklift is broken. Facts are
+# never deleted when they stop being true; they are marked ended, so the
+# rule learner and the dashboard can still see where a rule came from.
+
+class FactsIn(BaseModel):
+    facts: list[dict] = []
+    ended: list[dict] = []        # [{"id": 3, "at": "...", "ref": "..."}]
+
+
+@app.get("/runa/facts")
+def list_facts():
+    return FACTS
+
+
+@app.post("/runa/facts")
+def add_facts(body: FactsIn):
+    created = []
+    for f in body.facts:
+        record = {"id": max((x["id"] for x in FACTS), default=0) + 1,
+                  "created": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+                  "ended_at": None, "ended_by": None, **f}
+        FACTS.append(record)
+        created.append(record)
+    for e in body.ended:
+        fact = next((x for x in FACTS if x["id"] == e.get("id")), None)
+        if fact and not fact.get("ended_at"):
+            fact["ended_at"], fact["ended_by"] = e.get("at"), e.get("ref")
+    return {"created": created}
+
+
+@app.get("/runa/decisions")
+def list_decisions():
+    return DECISIONS
+
+
+@app.post("/runa/decisions")
+def add_decision(body: dict):
+    """The Planner's options for one problem, and which one a human chose.
+    Kept for the audit trail and for the rule learner."""
+    record = {"id": max((d["id"] for d in DECISIONS), default=0) + 1,
+              "at": datetime.now(timezone.utc).isoformat(timespec="seconds"), **body}
+    DECISIONS.append(record)
+    return record
+
+
 @app.post("/_debug/reset")
 def debug_reset():
     """Not part of the SAP contract — puts the demo data back to the start."""
@@ -331,6 +391,8 @@ def debug_reset():
     QUALITY_NOTIFICATIONS.clear()
     CHANGE_LOG.clear()
     RUNA_EVENTS.clear()
+    FACTS.clear()
+    DECISIONS.clear()
     seed_notebook()
     return {"reset": True}
 

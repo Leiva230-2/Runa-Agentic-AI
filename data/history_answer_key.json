@@ -1,0 +1,184 @@
+{
+  "_about": "What Runa should learn from history_chat.txt, with every message about each rule. Used to score the rule learner: a proposed rule is matched to the planted rule (or one-off trap) whose messages it cites most. Do not show this file to the AI.",
+  "rules": [
+    {
+      "id": "R1",
+      "type": "driver_hours",
+      "rule": "A driver works at most 12 hours a day including rest. If an arrival would pass that, a relief driver takes over.",
+      "seen": [
+        "08-27 15:55",
+        "08-27 15:56",
+        "08-27 16:06",
+        "09-07 15:45",
+        "09-07 15:51"
+      ]
+    },
+    {
+      "id": "R2",
+      "type": "driver_availability",
+      "rule": "Agus is the relief driver for PT Sinar Baja and waits at the Cikampek pool; he meets the truck at a toll rest area.",
+      "seen": [
+        "08-27 15:58",
+        "08-27 16:05",
+        "08-27 17:10",
+        "09-07 15:50",
+        "09-07 17:05",
+        "09-08 10:00",
+        "09-08 10:30"
+      ]
+    },
+    {
+      "id": "R3",
+      "type": "weather",
+      "rule": "DOCK-01 has no roof. In heavy rain, cartons are unloaded at DOCK-02.",
+      "seen": [
+        "08-26 09:20",
+        "08-26 09:21",
+        "08-26 10:05",
+        "09-02 08:30",
+        "09-02 08:31",
+        "09-02 08:55",
+        "09-02 08:56",
+        "09-02 09:50",
+        "09-08 08:00",
+        "09-08 08:01",
+        "09-08 08:35",
+        "09-08 08:36"
+      ]
+    },
+    {
+      "id": "R4",
+      "type": "manpower",
+      "rule": "On Fridays 11:30-13:00 (Friday prayers) only one crew member is on the dock; trucks that arrive then wait until 13:00.",
+      "seen": [
+        "08-28 10:30",
+        "08-28 10:32",
+        "08-28 11:50",
+        "08-28 11:52",
+        "08-28 13:40",
+        "09-04 10:45",
+        "09-04 10:47",
+        "09-04 12:20"
+      ]
+    },
+    {
+      "id": "R5",
+      "type": "equipment",
+      "rule": "With only one forklift working, unloading takes twice as long (240 cartons: 2 hours instead of 1); space trucks 2 hours apart.",
+      "seen": [
+        "08-31 06:00",
+        "08-31 06:02",
+        "08-31 06:03",
+        "08-31 06:05",
+        "08-31 08:26",
+        "09-03 06:10",
+        "09-03 06:12",
+        "09-03 09:46"
+      ]
+    },
+    {
+      "id": "R6",
+      "type": "manpower",
+      "rule": "Night overtime unloading needs at least 3 crew, and overtime is at most 3 hours.",
+      "seen": [
+        "08-27 17:20",
+        "08-27 17:25",
+        "08-27 17:26",
+        "09-01 17:22",
+        "09-01 17:30",
+        "09-01 17:32",
+        "09-07 16:00",
+        "09-07 16:10",
+        "09-07 16:11"
+      ]
+    },
+    {
+      "id": "R7",
+      "type": "stock",
+      "rule": "When instant noodle (FG-4471) stock covers less than 1 day, a noodle delivery must be received the same day, even at night.",
+      "seen": [
+        "08-27 10:20",
+        "08-27 10:25",
+        "09-01 11:15",
+        "09-01 11:17",
+        "09-01 17:33",
+        "09-07 10:30",
+        "09-07 10:32"
+      ]
+    },
+    {
+      "id": "R8",
+      "type": "route",
+      "rule": "The Cikampek toll road is jammed on Friday afternoons and in heavy rain: about 2 hours extra.",
+      "seen": [
+        "08-28 17:45",
+        "08-28 17:47",
+        "09-02 14:10",
+        "09-04 17:30",
+        "09-04 17:31"
+      ]
+    },
+    {
+      "id": "R9",
+      "type": "driver_availability",
+      "rule": "Rudi (CV Mitra Kemasan) may not drive after 20:00. A delivery that would arrive later moves to the next morning.",
+      "seen": [
+        "08-26 16:02",
+        "08-26 16:05",
+        "08-26 16:06",
+        "08-26 16:08",
+        "09-03 15:30",
+        "09-03 15:32",
+        "09-03 15:33",
+        "09-03 15:35"
+      ]
+    },
+    {
+      "id": "R10",
+      "type": "dock_hours",
+      "rule": "A truck arriving after the dock closes (22:00) parks in the holding area and is unloaded from 06:00.",
+      "seen": [
+        "08-31 19:30",
+        "08-31 19:32",
+        "08-31 22:40",
+        "09-01 17:32",
+        "09-01 17:35",
+        "09-01 23:05"
+      ]
+    }
+  ],
+  "one_offs_not_rules": [
+    {
+      "id": "D1",
+      "what": "Car-free day closed the Jababeka road on Sunday 30 Aug.",
+      "seen": [
+        "08-30 09:15",
+        "08-30 09:16"
+      ]
+    },
+    {
+      "id": "D2",
+      "what": "Budi's truck had a flat tyre once.",
+      "seen": [
+        "08-31 18:40",
+        "08-31 18:42"
+      ]
+    },
+    {
+      "id": "D3",
+      "what": "Two crew unloaded once on Saturday in an emergency; Sari said explicitly it is not the rule.",
+      "seen": [
+        "09-05 14:32",
+        "09-05 14:35",
+        "09-05 16:00"
+      ]
+    },
+    {
+      "id": "D4",
+      "what": "A toll accident on 7 Sep caused a jam. One accident is not a pattern.",
+      "seen": [
+        "09-07 15:40"
+      ]
+    }
+  ]
+}
