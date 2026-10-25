@@ -16,6 +16,7 @@ hide exactly the case that decides whether Runa acts or asks.
 """
 import json
 import re
+import threading
 from datetime import datetime, timedelta
 
 import time
@@ -25,6 +26,7 @@ import httpx
 
 from config import (AI_PROVIDER, AICORE_API_URL, AICORE_AUTH_URL,
                     AICORE_CLIENT_ID, AICORE_CLIENT_SECRET, AICORE_DEPLOYMENT,
+                    AICORE_SECOND_DEPLOYMENT, SECOND_MODEL_NAME,
                     AICORE_RESOURCE_GROUP, EVENT_TYPES, NOTEBOOK_LIMIT, NOTEBOOK_SEED,
                     MODEL_LISTENER, MODEL_RESOLVER, SAP_BASE, SAP_HEADERS,
                     SAP_SERVICE, now)
@@ -145,6 +147,79 @@ def _ask(model: str, system: str, user: str, max_tokens: int = 1024) -> dict:
         except (ValueError, json.JSONDecodeError) as e:
             last_error = e                                # bad JSON: try once more
     raise ModelError(f"Model returned unusable output twice: {last_error}")
+
+
+# ------------------------------------------------------------ second model
+# A model from a different vendor (GPT-5.4) on the same SAP AI Core. It does
+# jobs where a second opinion helps: reading delivery stages and reviewing
+# the Planner's options. If it fails, Claude does the job, so nothing stops.
+
+def _call_second(system: str, user: str, max_tokens: int) -> str:
+    url = (f"{AICORE_API_URL.rstrip('/')}/v2/inference/deployments/"
+           f"{AICORE_SECOND_DEPLOYMENT}/chat/completions?api-version=2024-10-21")
+    body = {"messages": [{"role": "system", "content": system},
+                         {"role": "user", "content": user}],
+            "max_completion_tokens": max_tokens}
+    for attempt in range(2):
+        headers = {"Authorization": f"Bearer {_aicore_token(force=attempt > 0)}",
+                   "AI-Resource-Group": AICORE_RESOURCE_GROUP}
+        try:
+            r = httpx.post(url, json=body, headers=headers, timeout=90)
+        except httpx.TransportError as e:
+            raise ModelError(f"Cannot reach {SECOND_MODEL_NAME}: {e}") from e
+        if r.status_code == 401 and attempt == 0:
+            continue
+        if r.status_code >= 400:
+            raise ModelError(f"{SECOND_MODEL_NAME} error {r.status_code}: {r.text[:200]}")
+        choices = r.json().get("choices") or [{}]
+        return (choices[0].get("message") or {}).get("content") or ""
+    raise ModelError(f"{SECOND_MODEL_NAME} kept refusing the login")
+
+
+def ask_second(system: str, user: str, max_tokens: int = 2000) -> tuple[dict, str]:
+    """Ask the second model for JSON; returns (answer, which model answered).
+    Falls back to Claude if the second model is unavailable or answers badly."""
+    if AI_PROVIDER == "sapaicore" and AICORE_SECOND_DEPLOYMENT:
+        try:
+            for _ in range(2):
+                try:
+                    return _json(_call_second(system, user, max_tokens)), SECOND_MODEL_NAME
+                except (ValueError, json.JSONDecodeError):
+                    continue
+        except ModelError as e:
+            print(f"[second model] {e} — using Claude instead")
+    return _ask(MODEL_RESOLVER, system, user, max_tokens), "Claude"
+
+
+# ------------------------------------------------------------------ source
+# Who and what made Runa write to SAP, sent along with every write so the
+# warehouse log can show it ("Budi: macet, jam 11 malam"). One per thread:
+# the stage reader runs in the background next to the main pipeline.
+_source = threading.local()
+
+
+def set_source(**fields) -> None:
+    _source.value = {k: v for k, v in fields.items() if v is not None}
+
+
+def update_source(**fields) -> None:
+    current = dict(getattr(_source, "value", None) or {})
+    current.update({k: v for k, v in fields.items() if v is not None})
+    _source.value = current
+
+
+def clear_source() -> None:
+    _source.value = None
+
+
+def log_note(kind: str, delivery: str | None, summary: str) -> None:
+    """A note about a delivery for the warehouse log (not an SAP change)."""
+    try:
+        httpx.post(f"{SAP_BASE}/runa/log", headers=SAP_HEADERS, timeout=5,
+                   json={"kind": kind, "delivery": delivery, "summary": summary,
+                         "source": getattr(_source, "value", None)})
+    except httpx.HTTPError as e:
+        print(f"[log_note] skipped: {e}")
 
 
 # ---------------------------------------------------------------- Listener
@@ -324,6 +399,9 @@ def match_answer(message: str, questions: list[str]) -> dict:
 # ------------------------------------------------- Transactor (the "forms")
 
 def _sap(method: str, path: str, body: dict | None = None) -> dict:
+    source = getattr(_source, "value", None)
+    if body is not None and source:
+        body = {**body, "RunaSource": source}
     r = httpx.request(method, f"{SAP_BASE}{path}", json=body,
                       headers=SAP_HEADERS, timeout=10)
     r.raise_for_status()

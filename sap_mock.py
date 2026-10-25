@@ -20,7 +20,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
-from config import INBOUND_DELIVERIES, NOTEBOOK_SEED, RUNA_API_KEY
+from config import INBOUND_DELIVERIES, NOTEBOOK_SEED, RUNA_API_KEY, STAGES
 from store import Store, keep_events
 
 app = FastAPI(title="Mock S/4HANA — API_INBOUND_DELIVERY_SRV")
@@ -63,6 +63,31 @@ RUNA_EVENTS: list[dict] = []
 NOTEBOOK: list[dict] = []      # Runa's notebook (not SAP — Runa's own memory)
 FACTS: list[dict] = []         # what Runa read from the chat about constraints
 DECISIONS: list[dict] = []     # options the Planner offered, and what a human chose
+LOG: list[dict] = []           # the warehouse log: every change, newest last
+LOG_LIMIT = 2000
+
+
+def log_entry(kind: str, delivery: str | None, summary: str, source: dict | None = None,
+              **extra) -> None:
+    """One line in the warehouse log (the dashboard's Log tab). Written HERE,
+    on the SAP side, for every change, so nothing can change without a trace.
+      kind: sap / decision / undo / conflict / problem / chat
+      source: who and what caused it, sent by Runa (RunaSource)"""
+    LOG.append({"id": max((e["id"] for e in LOG), default=0) + 1,
+                "at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+                "kind": kind, "delivery": delivery, "summary": summary,
+                "source": source or {}, **extra})
+    del LOG[:-LOG_LIMIT]
+
+
+class Source(BaseModel):
+    """Not part of SAP: who and what made Runa write, for the log.
+    In real S/4HANA this would live in Runa's own audit store."""
+    sender: str | None = None
+    text: str | None = None
+    agent: str | None = None
+    scores: list[float] | None = None
+    option: str | None = None
 
 
 class DeliveryPatch(BaseModel):
@@ -77,6 +102,8 @@ class DeliveryPatch(BaseModel):
     # keeps them on the delivery so the demo shows one record.
     CarrierContact: str | None = None
     ReceivingDock: str | None = None
+    Stage: str | None = None           # see config.STAGES
+    RunaSource: Source | None = None   # for the log, not stored on the delivery
 
 
 class QualityNotification(BaseModel):
@@ -86,10 +113,12 @@ class QualityNotification(BaseModel):
     NotificationText: str
     DefectCode: str
     SourceMessageRef: str | None = None
+    RunaSource: Source | None = None
 
 class CancelRequest(BaseModel):
     """Who/what asked for a reversal — kept for the audit trail."""
     SourceMessageRef: str | None = None
+    RunaSource: Source | None = None
 
 
 class RunaEvent(BaseModel):
@@ -112,6 +141,7 @@ class MaterialDocument(BaseModel):
     QuantityInDeliveryUnit: float
     GoodsMovementReasonCode: str
     SourceMessageRef: str | None = None
+    RunaSource: Source | None = None
 
 
 @app.get(f"{SERVICE}/A_InboundDelivery")
@@ -138,6 +168,9 @@ def patch_delivery(delivery_id: str, patch: DeliveryPatch):
     # Only the fields the caller actually sent. A field sent as null is set to
     # null — that's how an undo puts back a value that was empty before.
     changes = patch.model_dump(exclude_unset=True)
+    source = changes.pop("RunaSource", None)
+    if changes.get("Stage") and changes["Stage"] not in STAGES:
+        raise HTTPException(422, f"Stage must be one of {', '.join(STAGES)}")
     DB[delivery_id].update(changes)
     DB[delivery_id]["LastChangeDateTime"] = datetime.now().isoformat(timespec="seconds")
 
@@ -147,6 +180,14 @@ def patch_delivery(delivery_id: str, patch: DeliveryPatch):
         "changes": changes,
         "before": {k: before.get(k) for k in changes},
     })
+    shown = {k: [before.get(k), v] for k, v in changes.items()
+             if k not in ("SourceMessageRef", "ResolutionNote", "DelayReasonCode")
+             and before.get(k) != v}
+    if shown:
+        agent = (source or {}).get("agent") or ""
+        kind = "undo" if agent == "undo" else "decision" if agent == "decision" else "sap"
+        log_entry(kind, delivery_id, changes.get("ResolutionNote") or "", source,
+                  changes=shown)
     return {"d": DB[delivery_id]}
 
 
@@ -154,13 +195,18 @@ def patch_delivery(delivery_id: str, patch: DeliveryPatch):
 def post_material_document(doc: MaterialDocument):
     """Goods receipt discrepancy posting."""
     number = f"50000{len(MATERIAL_DOCUMENTS) + 1:04d}"
+    body = doc.model_dump()
+    source = body.pop("RunaSource", None)
     record = {
         "MaterialDocument": number,
         "MaterialDocumentYear": "2026",
         "PostingDate": datetime.now().strftime("%Y-%m-%d"),
-        **doc.model_dump(),
+        **body,
     }
     MATERIAL_DOCUMENTS.append(record)
+    log_entry("sap", doc.InboundDelivery,
+              f"Kurang {doc.QuantityInDeliveryUnit:g}: dokumen {number}", source,
+              document=number, problem=True)
     return {"d": record}
 
 
@@ -182,8 +228,13 @@ def cancel_material_document(number: str, req: CancelRequest):
         "ReversedMaterialDocument": number,
         "SourceMessageRef": req.SourceMessageRef,
     }
+    reversal.pop("RunaSource", None)
     MATERIAL_DOCUMENTS.append(reversal)
     original["ReversalDocument"] = reversal["MaterialDocument"]
+    log_entry("undo", original["InboundDelivery"],
+              f"Dokumen {number} dibatalkan: dokumen pembalik {reversal['MaterialDocument']}",
+              req.RunaSource.model_dump() if req.RunaSource else None,
+              document=reversal["MaterialDocument"])
     return {"d": reversal}
 
 
@@ -192,14 +243,18 @@ def post_quality_notification(qn: QualityNotification):
     if qn.InboundDelivery not in DB:
         raise HTTPException(404, f"Inbound delivery {qn.InboundDelivery} not found")
     number = f"20000{len(QUALITY_NOTIFICATIONS) + 1:04d}"
+    body = qn.model_dump()
+    source = body.pop("RunaSource", None)
     record = {
         "QualityNotification": number,
         "NotificationType": "Q2",          # S/4 type for supplier complaints
         "CreationDate": datetime.now().strftime("%Y-%m-%d"),
         "NotificationStatus": "OUTSTANDING",
-        **qn.model_dump(),
+        **body,
     }
     QUALITY_NOTIFICATIONS.append(record)
+    log_entry("sap", qn.InboundDelivery, f"Keluhan kualitas {number}: {qn.NotificationText}",
+              source, document=number, problem=True)
     return {"d": record}
 
 
@@ -215,6 +270,8 @@ def cancel_quality_notification(number: str, req: CancelRequest):
         raise HTTPException(409, f"Quality notification {number} is already cancelled")
     qn["NotificationStatus"] = "CANCELLED"
     qn["CancellationRef"] = req.SourceMessageRef
+    log_entry("undo", qn["InboundDelivery"], f"Keluhan kualitas {number} dibatalkan",
+              req.RunaSource.model_dump() if req.RunaSource else None, document=number)
     return {"d": qn}
 
 
@@ -227,6 +284,14 @@ def add_event(event: RunaEvent):
               **event.model_dump()}
     RUNA_EVENTS.append(record)
     RUNA_EVENTS[:] = keep_events(RUNA_EVENTS)
+    if event.decision == "conflict":
+        # The first line of what Runa posted: "⚠️ DO … tiba 23:00, tapi DOCK-02 tutup 22:00."
+        first = event.text.strip().splitlines()[0].lstrip("⚠️ ").strip() if event.text else ""
+        log_entry("conflict", event.resolved, first or "Bentrok dengan jam dock",
+                  {"agent": "Runa"})
+    elif event.decision == "handoff":
+        log_entry("problem", event.resolved, "Diteruskan ke supervisor",
+                  {"sender": event.sender, "text": event.text, "agent": "Runa"})
     return record
 
 @app.get("/runa/events")
@@ -273,7 +338,7 @@ STORE = Store()
 COLLECTIONS = {"deliveries": DB, "material_documents": MATERIAL_DOCUMENTS,
                "quality_notifications": QUALITY_NOTIFICATIONS,
                "change_log": CHANGE_LOG, "events": RUNA_EVENTS, "notebook": NOTEBOOK,
-               "facts": FACTS, "decisions": DECISIONS}
+               "facts": FACTS, "decisions": DECISIONS, "log": LOG}
 
 
 def snapshot() -> dict:
@@ -367,6 +432,33 @@ def add_facts(body: FactsIn):
     return {"created": created}
 
 
+class LogIn(BaseModel):
+    kind: str = "chat"                 # chat (a note) / problem (needs attention)
+    delivery: str | None = None
+    summary: str
+    source: Source | None = None
+
+
+@app.get("/runa/log")
+def list_log(limit: int = 300):
+    """The warehouse log, newest first."""
+    return LOG[::-1][:max(1, min(limit, LOG_LIMIT))]
+
+
+@app.post("/runa/log")
+def add_log(entry: LogIn):
+    """A note from the group about a delivery that isn't an SAP change
+    ("kurang bubble wrap"). SAP changes are logged by runa-sap itself."""
+    if entry.kind not in ("chat", "problem"):
+        raise HTTPException(422, "kind is chat or problem")
+    if entry.delivery and entry.delivery not in DB:
+        raise HTTPException(404, f"Inbound delivery {entry.delivery} not found")
+    log_entry(entry.kind, entry.delivery, " ".join(entry.summary.split())[:200],
+              entry.source.model_dump() if entry.source else None,
+              problem=entry.kind == "problem")
+    return LOG[-1]
+
+
 @app.get("/runa/decisions")
 def list_decisions():
     return DECISIONS
@@ -393,6 +485,7 @@ def debug_reset():
     RUNA_EVENTS.clear()
     FACTS.clear()
     DECISIONS.clear()
+    LOG.clear()
     seed_notebook()
     return {"reset": True}
 

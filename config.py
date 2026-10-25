@@ -65,6 +65,7 @@ INBOUND_DELIVERIES = {
         "DockOpeningTime": "06:00",
         "DockClosingTime": "22:00",
         "Status": "In transit",
+        "Stage": "IN_TRANSIT",
         "CarrierContact": "Budi Santoso",
         "Route": "Cikampek - Cikarang DC",
     },
@@ -82,6 +83,7 @@ INBOUND_DELIVERIES = {
         "DockOpeningTime": "06:00",
         "DockClosingTime": "22:00",
         "Status": "In transit",
+        "Stage": "READY",
         "CarrierContact": "Rudi Hartono",
         "Route": "Bekasi - Cikarang DC",
     },
@@ -99,10 +101,57 @@ INBOUND_DELIVERIES = {
         "DockOpeningTime": "06:00",
         "DockClosingTime": "22:00",
         "Status": "Planned",
+        "Stage": "PACKING",
         "CarrierContact": "Budi Santoso",
         "Route": "Cikampek - Cikarang DC",
     },
 }
+
+
+def _delivery(number, supplier, supplier_id, material, description, qty, unit,
+              eta, dock, status, stage, driver, route):
+    return {"InboundDelivery": number, "SupplierName": supplier, "Supplier": supplier_id,
+            "Material": material, "MaterialDescription": description,
+            "DeliveryQuantity": qty, "DeliveryQuantityUnit": unit,
+            "PlannedGoodsReceipt": eta, "ReceivingPlant": "1710", "ReceivingDock": dock,
+            "DockOpeningTime": "06:00", "DockClosingTime": "22:00", "Status": status,
+            "Stage": stage, "CarrierContact": driver, "Route": route}
+
+
+# More inbound deliveries, so the warehouse looks like a real one on the Log
+# page. Other suppliers and other drivers than the demo story (Budi, Rudi),
+# so they don't make Runa unsure about which delivery a driver means.
+INBOUND_DELIVERIES.update({d["InboundDelivery"]: d for d in [
+    _delivery("0080004601", "PT Plastik Jaya", "0001043310", "PKG-2210",
+              "PET bottle 600 ml", 3000, "PC", "2026-09-10T08:00:00", "DOCK-01",
+              "Planned", "PACKING", "Dimas Saputra", "Karawang - Cikarang DC"),
+    _delivery("0080004602", "PT Kimia Sentosa", "0001043355", "FG-5520",
+              "Liquid soap 1 L carton", 600, "CTN", "2026-09-11T10:00:00", "DOCK-01",
+              "Planned", "PRODUCTION", "Eko Wijaya", "Bekasi Timur - Cikarang DC"),
+    _delivery("0080004603", "PT Sumber Pangan", "0001043402", "RM-3105",
+              "Refined sugar 50 kg sack", 200, "SAK", "2026-09-10T13:00:00", "DOCK-02",
+              "Planned", "READY", "Fajar Nugroho", "Cikarang Utara - Cikarang DC"),
+    _delivery("0080004604", "CV Karya Logam", "0001043417", "PKG-4410",
+              "Tin can 330 ml", 5000, "PC", "2026-09-09T18:30:00", "DOCK-01",
+              "In transit", "AT_GATE", "Gilang Ramadhan", "Cibitung - Cikarang DC"),
+    _delivery("0080004605", "PT Plastik Jaya", "0001043310", "PKG-2230",
+              "Bottle cap 28 mm", 20000, "PC", "2026-09-09T17:00:00", "DOCK-02",
+              "In transit", "UNLOADING", "Dimas Saputra", "Karawang - Cikarang DC"),
+    _delivery("0080004606", "PT Kertas Nusantara", "0001043450", "PKG-5120",
+              "Label roll 80 x 50 mm", 120, "ROL", "2026-09-09T09:00:00", "DOCK-02",
+              "Received", "RECEIVED", "Hadi Kurniawan", "Cikarang Barat - Cikarang DC"),
+]})
+
+# The life of an inbound delivery, in order. Runa may only move a delivery
+# FORWARD through these (stages.py). A step back needs a human.
+STAGES = ["PRODUCTION", "PACKING", "READY", "IN_TRANSIT", "AT_GATE",
+          "UNLOADING", "RECEIVED"]
+
+# The second AI model, from a different vendor, on the same SAP AI Core:
+# it reads delivery stages and reviews the Planner's options. If it fails,
+# Claude does the job instead.
+AICORE_SECOND_DEPLOYMENT = os.getenv("AICORE_SECOND_DEPLOYMENT", "d1a82575de60e02a")
+SECOND_MODEL_NAME = os.getenv("SECOND_MODEL_NAME", "GPT-5.4")
 
 # Runa's notebook: what this company knows that SAP doesn't — who is who in
 # the group, nicknames, routes. notebook.json holds the starting notes; the
@@ -120,6 +169,12 @@ NOTEBOOK_LIMIT = 25        # at most this many notes go to the AI per message
 MATERIAL_ALIASES = {
     "FG-4471": ["mie", "mi instan", "indomie", "noodle", "noodles"],
     "PKG-1120": ["shipper", "corrugated", "kardus kosong", "karton kosong"],
+    "PKG-2210": ["botol pet", "botol 600"],
+    "FG-5520": ["sabun", "sabun cair", "soap"],
+    "RM-3105": ["gula", "sugar"],
+    "PKG-4410": ["kaleng", "tin can"],
+    "PKG-2230": ["tutup botol"],
+    "PKG-5120": ["label"],
 }
 
 EVENT_TYPES = [

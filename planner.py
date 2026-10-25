@@ -202,14 +202,18 @@ def _duty(delivery: dict, facts: list[dict], now: datetime) -> str:
 def review_plan(plan: dict, problem: str, delivery: dict, facts: list[dict],
                 rules: list[dict], now: datetime) -> dict:
     """A second AI, the Reviewer, checks every option against every rule and
-    fact. It doesn't write options; it only finds what's wrong with them."""
+    fact. It doesn't write options; it only finds what's wrong with them.
+    It runs on the second model (GPT-5.4), so the Planner (Claude) is checked
+    by a model from another vendor; if GPT is unavailable, Claude reviews.
+    The answer carries "_model": which model reviewed."""
     import agents
-    from config import MODEL_RESOLVER
     options = "\n".join(f"{o['label']}) {o['title']} | actions: {json.dumps(o['actions'])} "
                         f"| {o['why']}" for o in plan["options"])
     prompt = (_prompt(problem, delivery, facts, rules, now, _duty(delivery, facts, now))
               + f"\n\nOptions to review:\n{options}")
-    return agents._ask(MODEL_RESOLVER, REVIEW_SYSTEM, prompt, max_tokens=1500)
+    raw, model = agents.ask_second(REVIEW_SYSTEM, prompt, max_tokens=1500)
+    raw["_model"] = model
+    return raw
 
 
 def apply_review(plan: dict, raw: dict, facts: list[dict], rules: list[dict]) -> dict:

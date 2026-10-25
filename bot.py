@@ -85,9 +85,14 @@ async def on_message(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     for reply in await asyncio.to_thread(runa.finish_escalation):
         await update.message.reply_text(reply)
 
-    # After replying: read the constraints in this message (facts.py) in the
-    # background, so the next message isn't kept waiting.
-    task = asyncio.create_task(asyncio.to_thread(runa.observe, sender, text))
+    # After replying, in the background so the next message isn't kept
+    # waiting: read the constraints in this message (facts.py) and any
+    # delivery stage it reports (stages.py, on the second model).
+    async def side_jobs():
+        await asyncio.to_thread(runa.observe, sender, text)
+        for reply in await asyncio.to_thread(runa.track_stages, sender, text):
+            await update.message.reply_text(reply)
+    task = asyncio.create_task(side_jobs())
     background.add(task)
     task.add_done_callback(background.discard)
 

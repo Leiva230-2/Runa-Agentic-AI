@@ -71,6 +71,8 @@ def fresh():
     agents.draft_note = ai.draft_note
     import planner
     planner.make_plan = ai.make_plan
+    import stages
+    stages.read_stages = lambda message, deliveries, context=None: ({"updates": []}, "GPT-5.4")
     planner.review_plan = ai.review_plan
     agents._notebook["notes"] = None              # fresh notebook after reset
     return ai, Runa(Trace(echo=False))
@@ -1116,6 +1118,119 @@ def test_planner_option_must_solve_the_problem():
     plan = planner.check_plan(raw, d, [], [], __import__("datetime").datetime(2026, 9, 9, 19, 42))
     check("An option that still lands after the dock closes is refused",
           not plan["options"] and "saat dock tutup" in plan["rejected"][0]["reason"])
+
+
+# --------------------------------------------------------------- stages ---
+def fake_stages(raw, model="GPT-5.4"):
+    import stages
+    stages.read_stages = lambda message, deliveries, context=None: (raw, model)
+
+
+def logged(kind=None):
+    entries = httpx.get(f"{SAP_BASE}/runa/log", timeout=5).json()
+    return [e for e in entries if kind is None or e["kind"] == kind]
+
+
+def test_stage_update_written_with_its_source():
+    ai, r = fresh()
+    msg = "DO 4601 lagi dikemas, tapi kita kekurangan bubble wrap"
+    fake_stages({"updates": [{"delivery": "4601", "stage": "READY", "evidence": "lagi dikemas",
+                              "confidence": 0.95}],
+                 "problems": [{"delivery": "4601", "note": "Kekurangan bubble wrap"}]})
+    r.handle("Rina", msg)
+    fake_stages({"updates": [{"delivery": "4602", "stage": "PACKING", "evidence": "lagi dikemas",
+                              "confidence": 0.95}]})
+    out = r.track_stages("Rina", "DO 4602 lagi dikemas")
+    d = sap()["deliveries"]["0080004602"]
+    check("Stage reader: 'DO 4602 lagi dikemas' moves it Diproduksi → Dikemas in SAP",
+          d["Stage"] == "PACKING" and "Diproduksi → Dikemas" in out[0])
+    entry = logged("sap")[0]
+    check("The log shows the change, the sender, the message and which model read it",
+          entry["changes"]["Stage"] == ["PRODUCTION", "PACKING"] and entry["source"]["sender"] == "Rina"
+          and entry["source"]["agent"] == "stages (GPT-5.4)")
+
+
+def test_stage_reader_code_checks():
+    import stages
+    deliveries = [{"InboundDelivery": "0080004601", "Stage": "PACKING"},
+                  {"InboundDelivery": "0080004606", "Stage": "RECEIVED"},
+                  {"InboundDelivery": "0080004602", "Stage": "PRODUCTION"}]
+    msg = "DO 4601 sudah siap kirim, 4606 ternyata masih dikemas"
+    raw = {"updates": [
+        {"delivery": "4601", "stage": "READY", "evidence": "sudah siap kirim", "confidence": 0.95},
+        {"delivery": "4606", "stage": "PACKING", "evidence": "masih dikemas", "confidence": 0.95},
+        {"delivery": "4602", "stage": "PACKING", "evidence": "masih dikemas", "confidence": 0.95},
+        {"delivery": "4601", "stage": "SHIPPED", "evidence": "siap", "confidence": 0.95}]}
+    found = stages.check_stages(raw, msg, deliveries)
+    reasons = [why for why, _ in found["refused"]]
+    check("Stage checks: a forward step is kept",
+          [(u["delivery"], u["to"]) for u in found["updates"]] == [("0080004601", "READY")])
+    check("Stage checks: no going back, no DO that isn't in the message, no unknown stage",
+          any("mundur" in w for w in reasons) and any("tidak ditulis" in w for w in reasons)
+          and any("tidak dikenal" in w for w in reasons))
+    weak = stages.check_stages({"updates": [{"delivery": "4602", "stage": "PACKING",
+                                             "evidence": "dikemas", "confidence": 0.6}]},
+                               "DO 4602 kayaknya lagi dikemas", deliveries)
+    fake = stages.check_stages({"updates": [{"delivery": "4602", "stage": "PACKING",
+                                             "evidence": "sudah dikemas rapi", "confidence": 0.95}]},
+                               "DO 4602 gimana?", deliveries)
+    check("Stage checks: unsure (0.60) or quoting words that aren't there is refused",
+          not weak["updates"] and not fake["updates"])
+
+
+def test_stage_undo_and_no_ai_call_without_a_do():
+    import stages
+    ai, r = fresh()
+    calls = []
+    stages.read_stages = lambda *a, **k: (calls.append(1), ({"updates": []}, "GPT-5.4"))[1]
+    r.track_stages("Rina", "siap bu, otw")
+    check("No DO number in the message: the stage reader doesn't call the AI", not calls)
+    fake_stages({"updates": [{"delivery": "4603", "stage": "IN_TRANSIT", "evidence": "berangkat",
+                              "confidence": 0.9}]})
+    r.track_stages("Fajar", "DO 4603 berangkat sekarang")
+    r.undo("Sari")
+    check("/undo puts the stage back, and the log shows the undo",
+          sap()["deliveries"]["0080004603"]["Stage"] == "READY" and bool(logged("undo")))
+
+
+def test_problem_note_logged_once():
+    ai, r = fresh()
+    fake_stages({"updates": [], "problems": [{"delivery": "4601", "note": "Kurang bubble wrap"}]})
+    r.handle("Rina", "DO 4601 kekurangan bubble wrap")        # listener: chatter (fake)
+    r.track_stages("Rina", "DO 4601 kekurangan bubble wrap")
+    notes = logged("problem")
+    check("A problem the main pipeline didn't handle goes to the log as a note",
+          len(notes) == 1 and notes[0]["summary"] == "Kurang bubble wrap"
+          and notes[0]["delivery"] == "0080004601")
+
+
+def test_second_model_falls_back_to_claude():
+    import config
+    real_provider, real_call, real_ask = agents.AI_PROVIDER, agents._call_second, agents._ask
+    agents.AI_PROVIDER = "sapaicore"
+    def down(*a, **k):
+        raise agents.ModelError("GPT down")
+    agents._call_second = down
+    agents._ask = lambda *a, **k: {"reviews": []}
+    try:
+        answer, model = agents.ask_second("system", "user")
+    finally:
+        agents.AI_PROVIDER, agents._call_second, agents._ask = real_provider, real_call, real_ask
+    check("If GPT-5.4 is down, Claude answers instead", model == "Claude" and answer == {"reviews": []})
+
+
+def test_log_records_sap_changes_and_decisions():
+    ai, r, (budi, agus), rule = planner_setup()
+    ai.plans = [plan_options(budi, agus, rule)]
+    late_conflict(r, ai)
+    ai.decisions = [{"choice": "a"}]
+    r.handle("Sari", "a aja")
+    kinds = [e["kind"] for e in reversed(logged())]
+    first = logged("sap")[-1]
+    check("Log: Budi's new time (with his words and scores), then Sari's decision",
+          kinds[:2] == ["sap", "decision"] and first["source"]["text"] == "Pasti jam 23:00 sampai pak"
+          and first["source"]["scores"] == [0.95, 0.95]
+          and logged("decision")[0]["changes"]["CarrierContact"] == ["Budi Santoso", "Agus"])
 
 
 # --------------------------------------------------------------- memory ---

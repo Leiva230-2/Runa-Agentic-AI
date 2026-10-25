@@ -40,6 +40,7 @@ STEP_NAMES = {
     "notebook" : "Notebook",
     "planner" : "Planner",
     "reviewer" : "Reviewer",
+    "stages" : "Stage reader",
 }
 WIB = timezone(timedelta(hours=7))
 
@@ -131,6 +132,7 @@ class Runa:
         sender_id: the Telegram user ID, so people are told apart by ID, not name."""
         self._sender_id = sender_id
         start = len(self.trace.events)
+        agents.set_source(sender=sender, text=message, agent="Runa")
         self.conversation.append(f"{sender}: {message}")
         self.trace.log("human", f"{sender}: {message}")
         try:
@@ -140,6 +142,8 @@ class Runa:
         except Exception as e:                       # SAP down, bad data, bugs
             replies = self._handoff("Ada gangguan di sistem", detail=f"{type(e).__name__}: {e}")
 
+        # What the main pipeline did with this message, for the stage reader
+        self._last_actors = {e["actor"] for e in self.trace.events[start:]}
         if self.report:
             try:
                 self._report(sender, message, self.trace.events[start:])
@@ -147,6 +151,54 @@ class Runa:
                 print(f"[report] skipped: {type(e).__name__}: {e}")
         return replies
 
+
+    # ============================================================== stages
+    def track_stages(self, sender: str, message: str) -> list[str]:
+        """Side job, after the reply: did this message report a delivery's
+        stage ("DO 1989 lagi dikemas")? The stage reader (stages.py, on the
+        second model) says what it sees; code checks it; the stage goes to
+        SAP. Problems it mentions go to the warehouse log. Never raises."""
+        import checks
+        import stages
+        try:
+            deliveries = agents.get_open_deliveries()
+            known = {d["InboundDelivery"] for d in deliveries}
+            if not checks.mentioned_deliveries(message, known):
+                return []                         # no DO named: nothing to read
+            raw, model = stages.read_stages(message, deliveries, self.conversation[-5:-1])
+            found = stages.check_stages(raw, message, deliveries)
+        except Exception as e:
+            print(f"[stages] skipped: {type(e).__name__}: {e}")
+            return []
+        for why, u in found["refused"]:
+            self.trace.log("stages", f"Not written ({why}): {u}")
+        agents.set_source(sender=sender, text=message, agent=f"stages ({model})")
+        out = []
+        for u in found["updates"]:
+            did, old, new = u["delivery"], u["from"], u["to"]
+            before = {"Stage": old}
+            patch = {"Stage": new, "SourceMessageRef": f"telegram:{len(self.conversation)}"}
+            if new == "RECEIVED":
+                d = next(x for x in deliveries if x["InboundDelivery"] == did)
+                before["Status"], patch["Status"] = d.get("Status"), "Received"
+            try:
+                agents.restore_delivery(did, patch)      # a plain field update
+            except Exception as e:
+                self.trace.log("stages", f"SAP refused the stage for DO {did}: {e}")
+                continue
+            label = f"tahap DO {did} {stages.LABEL.get(old, old)} → {stages.LABEL[new]}"
+            self.undo_stack.append(Undo("restore", did, label, before=before))
+            self.trace.log("stages", f"{model}: {label} (\"{u['evidence']}\", "
+                                     f"{u['confidence']:.2f})", delivery_id=did)
+            out.append(f"📦 DO {did}: {stages.LABEL.get(old, old)} → {stages.LABEL[new]}. "
+                       f"Tercatat di SAP.")
+        # Problems go to the log, unless the main pipeline already wrote or
+        # forwarded this message (then the log has it already).
+        if not ({"transactor", "handoff"} & getattr(self, "_last_actors", set())):
+            for p in found["problems"]:
+                agents.log_note("problem", p["delivery"], p["note"])
+                self.trace.log("stages", f"Problem logged for DO {p['delivery']}: {p['note']}")
+        return out
 
     # ================================================================ facts
     def observe(self, sender: str, message: str, at: datetime | None = None) -> list[dict]:
@@ -283,6 +335,9 @@ class Runa:
                 return self._ask_or_handoff(candidate, sender, question, texts,
                                             asked, last_question, reason, guess)
             written_before = self.written
+            # For the warehouse log: the words behind the write, and the scores
+            agents.update_source(text=" / ".join(texts[-3:]),
+                                 scores=[round(ident, 2), round(content, 2)])
             out = self._gate_and_write(res, deliveries)
             if asked and self.written > written_before:
                 # It took a question to get here. Anything worth remembering?
@@ -597,7 +652,8 @@ class Runa:
                     try:                          # the second pair of eyes
                         review = planner.review_plan(plan, problem, delivery, known, rules, at)
                         plan = planner.apply_review(plan, review, known, rules)
-                        self.trace.log("reviewer", f"{len(plan['options'])} options left after "
+                        self.trace.log("reviewer", f"{review.get('_model', 'Reviewer')}: "
+                                                   f"{len(plan['options'])} options left after "
                                                    f"the review, {len(plan['warnings'])} warnings")
                     except Exception as e:
                         self.trace.log("reviewer", f"Reviewer unavailable ({type(e).__name__}) "
@@ -673,9 +729,11 @@ class Runa:
                    "ResolutionNote", "SourceMessageRef", "CarrierContact",
                    "ReceivingDock")}
         ref = f"telegram:{len(self.conversation)}"
+        agents.update_source(agent="decision", option=result["choice"])
         if pd.plan:
             import planner
             option = next(o for o in pd.plan["options"] if o["label"] == result["choice"])
+            agents.update_source(option=f"{option['label']}: {option['title']}")
             confirmation = planner.apply_option(delivery, option, ref)
             agents.log_decision({"delivery": pd.delivery_id, "kind": pd.kind,
                                  "options": pd.plan["options"],
@@ -815,6 +873,7 @@ class Runa:
         if not self.undo_stack:
             return ["Belum ada catatan Runa di sesi ini yang bisa dibatalkan."]
         last = self.undo_stack.pop()
+        agents.set_source(sender=sender, text=f"/undo: {last.label}", agent="undo")
         ref = f"telegram:undo:{len(self.conversation)}"
         try:
             if last.kind == "restore":

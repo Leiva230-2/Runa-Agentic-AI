@@ -35,7 +35,7 @@ from datetime import datetime, timedelta, timezone
 RECENT_MESSAGES = 100
 CHATTER_HOURS = 24
 KEYS = ("deliveries", "material_documents", "quality_notifications",
-        "change_log", "events", "notebook", "facts", "decisions")
+        "change_log", "events", "notebook", "facts", "decisions", "log")
 
 
 def keep_events(events: list[dict], now: datetime | None = None) -> list[dict]:

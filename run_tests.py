@@ -106,6 +106,15 @@ def check_value(row: dict, d: dict, after: dict) -> str:
     if val == "(any defect code)" or not val:
         return "Y" if hit_delivery else "N"
 
+    if ">" in val and not val[0].isdigit():                 # e.g. DockClosingTime>22:00
+        # "open later than 22:00": any later time, including past midnight
+        # (01:00), which is earlier than the opening time as a string.
+        key, bound = val.split(">", 1)
+        actual = after["deliveries"].get(did, {}).get(key) or ""
+        opening = after["deliveries"].get(did, {}).get("DockOpeningTime", "06:00")
+        later = actual > bound or (actual and actual < opening)
+        return "Y" if hit_delivery and later else "N"
+
     if "=" in val and not val[0].isdigit():                 # e.g. DockClosingTime=23:59
         key, expected = val.split("=", 1)
         actual = after["deliveries"].get(did, {}).get(key)
