@@ -198,12 +198,32 @@ SUPERVISORS = [s.strip() for s in os.getenv("RUNA_SUPERVISORS", "Sari").split(",
                if s.strip()]
 
 # The demo story takes place on this evening, and the seed data matches it.
-# Set RUNA_NOW=live in .env to use the real clock (with real SAP data).
+# Set RUNA_NOW=live to use the real clock instead: Jakarta time (RUNA_TZ_OFFSET,
+# default +7, because the cloud servers run on UTC), and the seed deliveries
+# moved to today, so the story happens on the real day. Set it on BOTH apps
+# (runa-sap and runa-bot) so the dashboard and Runa agree on the time.
 DEMO_NOW = os.getenv("RUNA_NOW", "2026-09-09T19:42:00")
+DEMO_DAY = "2026-09-09"                      # the day the seed data is written for
+TZ_OFFSET_HOURS = float(os.getenv("RUNA_TZ_OFFSET", "7"))
 
 
 def now():
-    from datetime import datetime
+    from datetime import datetime, timedelta, timezone
     if DEMO_NOW == "live":
-        return datetime.now().replace(microsecond=0)
+        local = timezone(timedelta(hours=TZ_OFFSET_HOURS))
+        return datetime.now(local).replace(tzinfo=None, microsecond=0)
     return datetime.fromisoformat(DEMO_NOW)
+
+
+def seed_deliveries() -> dict:
+    """The starting deliveries, a fresh copy. With the real clock, every
+    arrival time moves by the same number of days, so the demo day is today."""
+    from copy import deepcopy
+    from datetime import date, datetime, timedelta
+    seed = deepcopy(INBOUND_DELIVERIES)
+    shift = (now().date() - date.fromisoformat(DEMO_DAY)).days
+    if shift:
+        for d in seed.values():
+            moved = datetime.fromisoformat(d["PlannedGoodsReceipt"]) + timedelta(days=shift)
+            d["PlannedGoodsReceipt"] = moved.isoformat(timespec="seconds")
+    return seed

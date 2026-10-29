@@ -20,7 +20,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
-from config import INBOUND_DELIVERIES, NOTEBOOK_SEED, RUNA_API_KEY, STAGES
+from config import DEMO_NOW, NOTEBOOK_SEED, RUNA_API_KEY, STAGES, now, seed_deliveries
 from store import Store, keep_events
 
 app = FastAPI(title="Mock S/4HANA — API_INBOUND_DELIVERY_SRV")
@@ -55,7 +55,7 @@ async def require_key(request: Request, call_next):
 
 SERVICE = "/sap/opu/odata/sap/API_INBOUND_DELIVERY_SRV"
 
-DB = deepcopy(INBOUND_DELIVERIES)
+DB = seed_deliveries()
 MATERIAL_DOCUMENTS: list[dict] = []
 QUALITY_NOTIFICATIONS: list[dict] = []
 CHANGE_LOG: list[dict] = []
@@ -478,7 +478,7 @@ def add_decision(body: dict):
 def debug_reset():
     """Not part of the SAP contract — puts the demo data back to the start."""
     DB.clear()
-    DB.update(deepcopy(INBOUND_DELIVERIES))
+    DB.update(seed_deliveries())
     MATERIAL_DOCUMENTS.clear()
     QUALITY_NOTIFICATIONS.clear()
     CHANGE_LOG.clear()
@@ -499,6 +499,9 @@ def debug_state():
         "material_documents": MATERIAL_DOCUMENTS,
         "quality_notifications": QUALITY_NOTIFICATIONS,
         "change_log": CHANGE_LOG,
+        # Runa's clock, so the dashboard's "now" line and "today" match it.
+        "now": now().isoformat(timespec="seconds"),
+        "live_clock": DEMO_NOW == "live",
     }
 
 
