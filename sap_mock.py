@@ -511,7 +511,7 @@ def live_state() -> dict:
     return {"deliveries": DB, "change_log": CHANGE_LOG,
             "material_documents": MATERIAL_DOCUMENTS,
             "quality_notifications": QUALITY_NOTIFICATIONS,
-            "events": RUNA_EVENTS}
+            "events": RUNA_EVENTS, "log": LOG}
 
 
 try:

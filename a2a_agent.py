@@ -16,6 +16,10 @@ import json
 import os
 import re
 
+STAGE_TEXT = {"PRODUCTION": "Diproduksi", "PACKING": "Dikemas", "READY": "Siap kirim",
+              "IN_TRANSIT": "Dalam perjalanan", "AT_GATE": "Di gerbang",
+              "UNLOADING": "Dibongkar", "RECEIVED": "Diterima"}
+
 DECISION_TEXT = {
     "written": "ditulis ke SAP",
     "asked": "Runa bertanya dulu",
@@ -84,7 +88,8 @@ def describe_delivery(did: str, state: dict) -> str:
     eta = f"Estimasi tiba: {_hm(d.get('PlannedGoodsReceipt'))}"
     if changes:
         eta += f" (rencana awal {_hm(changes[0]['before'].get('PlannedGoodsReceipt'))})"
-    lines.append(f"- Status di SAP: {d.get('Status')}. {eta}.")
+    stage = f"Tahap: {STAGE_TEXT[d['Stage']]}. " if d.get("Stage") in STAGE_TEXT else ""
+    lines.append(f"- {stage}Status di SAP: {d.get('Status')}. {eta}.")
     lines.append(f"- Dock: {d.get('ReceivingDock')}, buka {d.get('DockOpeningTime')}"
                  f"–{d.get('DockClosingTime')}."
                  + (f" Catatan: {d['ResolutionNote']}." if d.get("ResolutionNote") else ""))
@@ -102,6 +107,14 @@ def describe_delivery(did: str, state: dict) -> str:
                          f"(notifikasi {qn['QualityNotification']}, "
                          f"{qn.get('NotificationStatus', 'OUTSTANDING')}).")
 
+    # Problems the group reported that aren't SAP documents (e.g. "kurang
+    # bubble wrap"), from the warehouse log. Newest last, at most three.
+    notes = [e for e in state.get("log", []) if e.get("delivery") == did and e.get("kind") == "problem"][-3:]
+    for e in notes:
+        who = (e.get("source") or {}).get("sender")
+        text = re.sub(r"^DO \d+\s*[·:-]?\s*", "", e.get("summary") or "")
+        lines.append(f"- Perlu perhatian: {text}" + (f" (dari {who})." if who else "."))
+
     conflict = _open_conflict(events, did)
     if conflict:
         lines.append("- ⚠️ Menunggu keputusan supervisor: tiba setelah dock tutup "
@@ -114,7 +127,19 @@ def describe_delivery(did: str, state: dict) -> str:
             lines.append(f"    - {e['ts']} {e['sender']}: \"{e['text']}\" → "
                          f"{DECISION_TEXT.get(e['decision'], e['decision'])}")
     else:
-        lines.append("- Belum ada laporan dari grup tentang delivery ini.")
+        # Messages that only moved a stage (read by the stage reader) are in
+        # the warehouse log, not in the events: quote those instead.
+        quoted = []
+        for e in state.get("log", []):
+            src = e.get("source") or {}
+            if (e.get("delivery") == did and src.get("text") and src.get("sender") not in (None, "Runa")
+                    and e.get("kind") != "undo" and (src["sender"], src["text"]) not in quoted):
+                quoted.append((src["sender"], src["text"]))
+        if quoted:
+            lines.append("- Dari grup operasional (terbaru di bawah):")
+            lines += [f"    - {who}: \"{text}\"" for who, text in quoted[-5:]]
+        else:
+            lines.append("- Belum ada laporan dari grup tentang delivery ini.")
     return "\n".join(lines)
 
 
@@ -129,7 +154,8 @@ def describe_day(state: dict) -> str:
     lines.append("- Delivery:")
     for did, d in state["deliveries"].items():
         flag = " ⚠️ menunggu keputusan supervisor" if _open_conflict(events, did) else ""
-        lines.append(f"    - DO {did} ({d.get('SupplierName')}): {d.get('Status')}, "
+        stage = f"{STAGE_TEXT[d['Stage']]}, " if d.get("Stage") in STAGE_TEXT else ""
+        lines.append(f"    - DO {did} ({d.get('SupplierName')}): {stage}{d.get('Status')}, "
                      f"tiba {_hm(d.get('PlannedGoodsReceipt'))}{flag}")
     handoffs = [e for e in people if e["decision"] == "handoff"][-3:]
     if handoffs:

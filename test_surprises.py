@@ -641,7 +641,8 @@ def ask_runa(question):
     state = {"deliveries": state["deliveries"], "change_log": state["change_log"],
              "material_documents": state["material_documents"],
              "quality_notifications": state["quality_notifications"],
-             "events": httpx.get(f"{SAP_BASE}/runa/events", timeout=5).json()}
+             "events": httpx.get(f"{SAP_BASE}/runa/events", timeout=5).json(),
+             "log": httpx.get(f"{SAP_BASE}/runa/log?limit=300", timeout=5).json()[::-1]}
     return a2a_agent.answer(question, state)
 
 
@@ -651,6 +652,18 @@ def test_joule_question_about_a_delivery():
     text = ask_runa("Apa yang terjadi dengan DO 4521 hari ini?")
     check("Joule asking about 'DO 4521' gets its real time and the original plan",
           "0080004521" in text and "23:00" in text and "rencana awal 09/09 21:00" in text)
+
+
+def test_joule_sees_stage_and_group_notes():
+    ai, r = fresh()
+    msg = "DO 4602 lagi dikemas, tapi kita kekurangan bubble wrap"
+    fake_stages({"updates": [{"delivery": "4602", "stage": "PACKING", "evidence": "lagi dikemas", "confidence": 0.95}],
+                 "problems": [{"delivery": "4602", "note": "Kekurangan bubble wrap"}]})
+    r.conversation.append(f"Rina: {msg}")
+    r.track_stages("Rina", msg)
+    text = ask_runa("Bagaimana DO 4602?")
+    check("Joule asking about DO 4602 hears its stage and the bubble wrap problem",
+          "Tahap: Dikemas" in text and "bubble wrap" in text.lower())
 
 
 def test_joule_unknown_delivery():
