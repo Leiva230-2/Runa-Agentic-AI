@@ -100,9 +100,17 @@ def _next_choice() -> dict | None:
 
 
 async def dashboard_choices(app: Application) -> None:
-    """Every 2 seconds: did a supervisor pick an option on the dashboard?"""
+    """Every 2 seconds: did a supervisor pick an option on the dashboard?
+    Every 30 seconds the open escalations are sent again, so a runa-sap
+    restart (a deploy, a new setting) can't hide them from the dashboard."""
+    rounds = 0
     while True:
         await asyncio.sleep(2)
+        rounds += 1
+        if rounds % 15 == 0:
+            _published.clear()
+            for chat_id, runa in list(sessions.items()):
+                await sync_decision(chat_id, runa)
         try:
             choice = await asyncio.to_thread(_next_choice)
             if not choice or choice.get("chat_id") not in sessions:
