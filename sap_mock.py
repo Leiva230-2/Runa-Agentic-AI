@@ -12,6 +12,7 @@ Run with:  uvicorn sap_mock:app --port 8000
 """
 import asyncio
 import secrets
+import time
 from copy import deepcopy
 from datetime import datetime, timezone
 
@@ -20,7 +21,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
-from config import DEMO_NOW, NOTEBOOK_SEED, RUNA_API_KEY, STAGES, now, seed_deliveries
+from config import DEMO_NOW, NOTEBOOK_SEED, RUNA_API_KEY, STAGES, SUPERVISOR_PIN, now, seed_deliveries
 from store import Store, keep_events
 
 app = FastAPI(title="Mock S/4HANA — API_INBOUND_DELIVERY_SRV")
@@ -39,8 +40,11 @@ async def require_key(request: Request, call_next):
     Changing anything (POST, PATCH) needs the secret key, so a stranger who
     finds this address can't write fake data or wipe the demo."""
     # /a2a is Joule's read-only door to Runa (see a2a_agent.py): it can't write.
+    # /runa/decision/choose is the dashboard's button: it has its own lock,
+    # the supervisor's PIN, and only passes a choice on to Runa (see below).
     if (RUNA_API_KEY and request.method not in ("GET", "HEAD", "OPTIONS")
-            and not request.url.path.startswith("/a2a")):
+            and not request.url.path.startswith("/a2a")
+            and request.url.path != "/runa/decision/choose"):
         given = request.headers.get("X-Runa-Key", "")
         if not secrets.compare_digest(given, RUNA_API_KEY):
             return JSONResponse({"detail": "Missing or wrong X-Runa-Key"},
@@ -63,6 +67,9 @@ RUNA_EVENTS: list[dict] = []
 NOTEBOOK: list[dict] = []      # Runa's notebook (not SAP — Runa's own memory)
 FACTS: list[dict] = []         # what Runa read from the chat about constraints
 DECISIONS: list[dict] = []     # options the Planner offered, and what a human chose
+OPEN_DECISION: dict | None = None   # the escalation Runa is waiting on (sent by the bot)
+CHOICES: list[dict] = []            # options picked on the dashboard, for the bot to carry out
+PIN_FAILURES: list[float] = []      # wrong PINs, for a short lockout
 LOG: list[dict] = []           # the warehouse log: every change, newest last
 LOG_LIMIT = 2000
 
@@ -474,6 +481,68 @@ def add_decision(body: dict):
     return record
 
 
+# ------------------------------------------------- decisions from the dashboard
+# The bot keeps the open escalation (opsi a / b) and tells runa-sap about it.
+# A supervisor can then pick an option on the dashboard; runa-sap checks the
+# PIN and queues the choice; the bot picks it up within seconds and carries it
+# out exactly as if the supervisor had typed it in Telegram.
+class DecisionState(BaseModel):
+    decision: dict | None = None
+    chat_id: int | None = None
+
+
+class DashboardChoice(BaseModel):
+    delivery: str
+    choice: str
+    pin: str
+
+
+@app.post("/runa/decision")
+def set_decision(body: DecisionState):
+    """From the bot: the escalation now open, or none. Needs the API key."""
+    global OPEN_DECISION
+    if body.decision:
+        OPEN_DECISION = {**body.decision, "chat_id": body.chat_id,
+                         "opened": (OPEN_DECISION or {}).get("opened")
+                         if OPEN_DECISION and OPEN_DECISION.get("delivery") == body.decision.get("delivery")
+                         else datetime.now(timezone.utc).isoformat(timespec="seconds")}
+    else:
+        OPEN_DECISION = None
+        CHOICES.clear()
+    return {"ok": True}
+
+
+@app.post("/runa/decision/choose", status_code=202)
+def choose_on_dashboard(body: DashboardChoice):
+    """From the dashboard: a supervisor's choice, checked by PIN."""
+    if not SUPERVISOR_PIN:
+        raise HTTPException(503, "Memilih dari dashboard belum diaktifkan (RUNA_SUPERVISOR_PIN).")
+    recent = [t for t in PIN_FAILURES if time.time() - t < 300]
+    PIN_FAILURES[:] = recent
+    if len(recent) >= 5:
+        raise HTTPException(429, "Terlalu banyak PIN salah. Coba lagi dalam 5 menit.")
+    if not secrets.compare_digest(body.pin.strip(), SUPERVISOR_PIN):
+        PIN_FAILURES.append(time.time())
+        raise HTTPException(403, "PIN supervisor salah.")
+    d = OPEN_DECISION
+    if not d or d.get("delivery") != body.delivery:
+        raise HTTPException(409, "Keputusan ini sudah tidak menunggu.")
+    choice = body.choice.strip().lower()
+    if choice not in {o["label"] for o in d.get("options", [])}:
+        raise HTTPException(400, "Opsi itu tidak ada.")
+    CHOICES.clear()                      # one decision, one choice: the last click wins
+    CHOICES.append({"delivery": body.delivery, "choice": choice, "chat_id": d.get("chat_id"),
+                    "at": datetime.now(timezone.utc).isoformat(timespec="seconds")})
+    d["requested"] = choice
+    return {"queued": choice}
+
+
+@app.post("/runa/decision/next")
+def next_dashboard_choice():
+    """From the bot: take the waiting dashboard choice, if any. Needs the API key."""
+    return CHOICES.pop(0) if CHOICES else None
+
+
 @app.post("/_debug/reset")
 def debug_reset():
     """Not part of the SAP contract — puts the demo data back to the start."""
@@ -486,6 +555,9 @@ def debug_reset():
     FACTS.clear()
     DECISIONS.clear()
     LOG.clear()
+    global OPEN_DECISION
+    OPEN_DECISION = None
+    CHOICES.clear()
     seed_notebook()
     return {"reset": True}
 
@@ -502,6 +574,8 @@ def debug_state():
         # Runa's clock, so the dashboard's "now" line and "today" match it.
         "now": now().isoformat(timespec="seconds"),
         "live_clock": DEMO_NOW == "live",
+        # The escalation waiting for a supervisor (options a/b...), if any
+        "decision": OPEN_DECISION,
     }
 
 

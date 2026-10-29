@@ -64,6 +64,77 @@ async def refresh_supervisors(update: Update, ctx: ContextTypes.DEFAULT_TYPE,
     auth.refreshed = time.time()
 
 
+# ------------------------------------------------- decisions on the dashboard
+# runa-sap shows the open escalation on the dashboard, so a supervisor can pick
+# an option there (with the supervisor PIN). The bot keeps runa-sap up to date
+# and carries out a dashboard choice exactly as an "opsi a" typed here.
+_published: dict[int, str] = {}       # what runa-sap last heard, per chat
+
+
+def _publish_decision(chat_id: int, runa: Runa) -> None:
+    """Tell runa-sap which escalation is open now (or none). Only on change."""
+    import json
+    summary = runa.decision_summary()
+    key = json.dumps(summary, sort_keys=True, default=str)
+    if _published.get(chat_id) == key:
+        return
+    try:
+        httpx.post(f"{SAP_BASE}/runa/decision", json={"decision": summary, "chat_id": chat_id},
+                   headers=SAP_HEADERS, timeout=5).raise_for_status()
+        _published[chat_id] = key
+    except httpx.HTTPError as e:
+        logging.warning("Could not publish the open decision: %s", e)
+
+
+async def sync_decision(chat_id: int, runa: Runa) -> None:
+    await asyncio.to_thread(_publish_decision, chat_id, runa)
+
+
+def _next_choice() -> dict | None:
+    try:
+        r = httpx.post(f"{SAP_BASE}/runa/decision/next", headers=SAP_HEADERS, timeout=5)
+        r.raise_for_status()
+        return r.json()
+    except (httpx.HTTPError, ValueError):
+        return None
+
+
+async def dashboard_choices(app: Application) -> None:
+    """Every 2 seconds: did a supervisor pick an option on the dashboard?"""
+    while True:
+        await asyncio.sleep(2)
+        try:
+            choice = await asyncio.to_thread(_next_choice)
+            if not choice or choice.get("chat_id") not in sessions:
+                continue
+            chat_id = choice["chat_id"]
+            runa = sessions[chat_id]
+            pd = runa.pending_decision
+            if not pd or pd.delivery_id != choice.get("delivery"):
+                await sync_decision(chat_id, runa)      # stale: tell the dashboard
+                continue
+            replies = await asyncio.to_thread(runa.choose_from_dashboard, choice["choice"])
+            await app.bot.send_message(
+                chat_id, f"🖥️ Supervisor memilih opsi {choice['choice']} lewat dashboard Runa.")
+            for reply in replies:
+                await app.bot.send_message(chat_id, reply)
+            await sync_decision(chat_id, runa)
+        except Exception as e:                   # never stop listening for choices
+            logging.warning("Dashboard choice failed: %s", e)
+
+
+async def on_start(app: Application) -> None:
+    """When the bot starts it has no open escalation: clear what the dashboard
+    shows, then start listening for dashboard choices."""
+    try:
+        await asyncio.to_thread(lambda: httpx.post(
+            f"{SAP_BASE}/runa/decision", json={"decision": None}, headers=SAP_HEADERS, timeout=5))
+    except httpx.HTTPError:
+        pass
+    task = asyncio.create_task(dashboard_choices(app))
+    background.add(task)
+
+
 async def on_message(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     # A photo with a caption ("DO 4521 basah semua" + a picture) is read by
     # its caption. A photo with no words is left alone — Runa only reads text.
@@ -84,6 +155,7 @@ async def on_message(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     # A late truck: the driver has his confirmation; now build the options.
     for reply in await asyncio.to_thread(runa.finish_escalation):
         await update.message.reply_text(reply)
+    await sync_decision(update.message.chat_id, runa)
 
     # After replying, in the background so the next message isn't kept
     # waiting: read the constraints in this message (facts.py) and any
@@ -118,6 +190,7 @@ async def on_reset(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         return
     httpx.post(f"{SAP_BASE}/_debug/reset", headers=SAP_HEADERS, timeout=5)
     sessions.pop(update.message.chat_id, None)
+    _published.pop(update.message.chat_id, None)       # runa-sap's reset cleared it too
     await update.message.reply_text("Reset. Data SAP dan memori Runa kembali ke awal.")
 
 
@@ -133,6 +206,7 @@ async def on_undo(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     replies = await asyncio.to_thread(runa.undo, name)
     for reply in replies:
         await update.message.reply_text(reply)
+    await sync_decision(update.message.chat_id, runa)
 
 
 # --------------------------------------------------------------- notebook
@@ -197,7 +271,7 @@ def main():
     if not TELEGRAM_TOKEN:
         raise SystemExit("TELEGRAM_TOKEN missing from .env")
 
-    app = Application.builder().token(TELEGRAM_TOKEN).build()
+    app = Application.builder().token(TELEGRAM_TOKEN).post_init(on_start).build()
     app.add_handler(CommandHandler("status", on_status))
     app.add_handler(CommandHandler("reset", on_reset))
     app.add_handler(CommandHandler("undo", on_undo))

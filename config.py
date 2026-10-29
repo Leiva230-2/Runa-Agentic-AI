@@ -41,6 +41,10 @@ SAP_BASE = os.getenv("SAP_BASE", "http://127.0.0.1:8000")
 # In real S/4HANA this job is done by SAP's own login (OAuth / technical user).
 RUNA_API_KEY = os.getenv("RUNA_API_KEY", "")
 SAP_HEADERS = {"X-Runa-Key": RUNA_API_KEY} if RUNA_API_KEY else {}
+# The supervisor's PIN for choosing an option on the dashboard. The dashboard
+# is a public page and can't hold the API key, so a choice made there needs
+# this PIN (set it on runa-sap). Not set = choosing on the dashboard is off.
+SUPERVISOR_PIN = os.getenv("RUNA_SUPERVISOR_PIN", "")
 SAP_SERVICE = "/sap/opu/odata/sap/API_INBOUND_DELIVERY_SRV"
 
 TRACE_FILE = "logs/trace.jsonl"

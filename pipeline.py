@@ -710,11 +710,55 @@ class Runa:
         self.trace.log("transactor", summary, delivery_id=did, **detail)
 
     # ========================================================== decisions
-    def _decide(self, message: str) -> list[str] | None:
-        """Someone may be answering the open escalation. None = they weren't."""
+    def decision_summary(self) -> dict | None:
+        """The open escalation, for the dashboard: which delivery, and the
+        options as letter + title. None when nothing is waiting."""
+        pd = self.pending_decision
+        if not pd:
+            return None
+        if pd.plan:
+            options = [{"label": o["label"], "title": o["title"]} for o in pd.plan["options"]]
+        elif pd.kind == "LATE":
+            options = [{"label": "a", "title": "Perpanjang shift dock sampai 23:59"},
+                       {"label": "b", "title": "Reschedule besok pagi saat dock buka"}]
+        else:
+            options = [{"label": "a", "title": "Buka dock lebih awal"},
+                       {"label": "b", "title": "Truk menunggu sampai dock buka"}]
+        return {"delivery": pd.delivery_id, "kind": pd.kind, "options": options,
+                "message": pd.options}
+
+    def choose_from_dashboard(self, choice: str, who: str = "Supervisor (dashboard)") -> list[str]:
+        """A supervisor picked an option on the dashboard (checked by PIN in
+        runa-sap). Same path as "opsi a" in Telegram: same write, same log,
+        same /undo. Never raises."""
+        if not self.pending_decision:
+            return []
+        start = len(self.trace.events)
+        text = f"opsi {choice} (dipilih di dashboard)"
+        agents.set_source(sender=who, text=text, agent="Runa")
+        self.conversation.append(f"{who}: {text}")
+        self.trace.log("human", f"{who}: {text}")
+        self._decider = who
+        try:
+            replies = self._decide(text, choice=choice) or []
+        except agents.ModelError as e:
+            replies = self._handoff("Sistem AI sedang bermasalah", detail=str(e))
+        except Exception as e:
+            replies = self._handoff("Ada gangguan di sistem", detail=f"{type(e).__name__}: {e}")
+        if self.report:
+            try:
+                self._report(who, text, self.trace.events[start:])
+            except Exception as e:
+                print(f"[report] skipped: {type(e).__name__}: {e}")
+        return replies
+
+    def _decide(self, message: str, choice: str | None = None) -> list[str] | None:
+        """Someone may be answering the open escalation. None = they weren't.
+        choice: already known (the dashboard's button), so the AI isn't asked."""
         pd = self.pending_decision
         letters = [o["label"] for o in pd.plan["options"]] if pd.plan else ["a", "b"]
-        result = agents.interpret_decision(message, pd.options)
+        result = ({"choice": choice, "reasoning": "chosen on the dashboard"} if choice
+                  else agents.interpret_decision(message, pd.options))
         if result.get("choice") not in letters:
             self.trace.log("resolver", "Not an answer to the open escalation — continuing")
             return None

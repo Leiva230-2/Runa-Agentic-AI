@@ -374,6 +374,35 @@ def test_only_supervisor_chooses():
     check("...the supervisor's 'opsi b' does", d["Status"] == "Rescheduled")
 
 
+def test_dashboard_choice_runs_the_option():
+    ai, r = fresh()
+    late_conflict(r, ai)
+    summary = r.decision_summary()
+    check("The open escalation is described for the dashboard (DO and letters)",
+          summary and summary["delivery"] == "0080004521"
+          and [o["label"] for o in summary["options"]][:2] == ["a", "b"])
+    out = r.choose_from_dashboard("b")
+    d = sap()["deliveries"]["0080004521"]
+    check("...a supervisor's choice on the dashboard is carried out like 'opsi b' in Telegram",
+          d["Status"] == "Rescheduled" and r.pending_decision is None and out
+          and r.decision_summary() is None)
+    check("...and nothing happens when no decision is open",
+          r.choose_from_dashboard("a") == [])
+
+
+def test_dashboard_choice_needs_the_pin():
+    httpx.post(f"{SAP_BASE}/runa/decision", headers=SAP_HEADERS, timeout=5, json={
+        "decision": {"delivery": "0080004521", "kind": "LATE",
+                     "options": [{"label": "a", "title": "x"}, {"label": "b", "title": "y"}]},
+        "chat_id": 1})
+    bad = httpx.post(f"{SAP_BASE}/runa/decision/choose", timeout=5,
+                     json={"delivery": "0080004521", "choice": "a", "pin": "wrong-pin"})
+    queued = httpx.post(f"{SAP_BASE}/runa/decision/next", headers=SAP_HEADERS, timeout=5).json()
+    check("A dashboard click without the right PIN is refused and queues nothing",
+          bad.status_code in (403, 503) and queued is None)
+    httpx.post(f"{SAP_BASE}/runa/decision", headers=SAP_HEADERS, timeout=5, json={"decision": None})
+
+
 def test_correction_cancels_stale_escalation():
     ai, r = fresh()
     late_conflict(r, ai)
